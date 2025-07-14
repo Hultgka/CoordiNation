@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>CoordiNation - Problem Solving</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Inter', Arial, sans-serif;
+      background: linear-gradient(135deg, #f8fafc, #e3e7ee 60%);
+      margin: 0;
+      min-height: 100vh;
+      color: #222;
+    }
+    header {
+      padding: 28px 0 12px 0;
+      text-align: center;
+      font-size: 2em;
+      font-weight: 600;
+      letter-spacing: 1px;
+      color: #2a3b4c;
+      position: relative;
+    }
+    .navbar {
+      position: absolute;
+      top: 22px;
+      right: 22px;
+      z-index: 100;
+    }
+    .nav-dropdown {
+      position: relative;
+      display: inline-block;
+    }
+    .nav-btn {
+      background: none;
+      color: #4f46e5;
+      border: none;
+      font-size: 2em;
+      cursor: pointer;
+      padding: 0 6px;
+      border-radius: 6px;
+      transition: background 0.2s;
+    }
+    .nav-btn:hover, .nav-btn:focus {
+      background: #e3e7ee;
+      outline: none;
+    }
+    .nav-content {
+      display: none;
+      position: absolute;
+      right: 0;
+      background: #fff;
+      min-width: 170px;
+      box-shadow: 0 4px 16px rgba(52, 92, 172, 0.14);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .nav-dropdown:focus-within .nav-content,
+    .nav-dropdown:hover .nav-content {
+      display: block;
+    }
+    .nav-link {
+      color: #222;
+      padding: 11px 18px;
+      text-decoration: none;
+      display: block;
+      font-size: 1em;
+      border-bottom: 1px solid #e6eaf2;
+      background: #fff;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .nav-link:last-child { border-bottom: none; }
+    .nav-link:hover { background: #e3e7ee; }
+    .form-container {
+      background: #fff;
+      border-radius: 16px;
+      box-shadow: 0 2px 16px rgba(52, 92, 172, 0.08);
+      max-width: 480px;
+      margin: 40px auto 0 auto;
+      padding: 28px 18px 22px 18px;
+      border: 1px solid #e6eaf2;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .form-title {
+      font-size: 1.3em;
+      font-weight: 600;
+      color: #374151;
+      margin-bottom: 12px;
+      text-align: center;
+      letter-spacing: 0.5px;
+    }
+    form {
+      width: 100%;
+    }
+    .form-group {
+      margin-bottom: 15px;
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+    }
+    label {
+      font-size: 1em;
+      font-weight: 600;
+      color: #374151;
+      margin-bottom: 6px;
+      margin-left: 2px;
+      text-align: left;
+    }
+    input[type="text"],
+    input[type="date"],
+    input[type="url"],
+    input[type="email"],
+    textarea,
+    select {
+      width: 100%;
+      padding: 8px 12px;
+      font-size: 1em;
+      border-radius: 8px;
+      border: 1px solid #cbd5e1;
+      background: #f7f8fa;
+      margin-bottom: 2px;
+      transition: border 0.2s;
+      box-sizing: border-box;
+    }
+    input:focus, textarea:focus, select:focus {
+      border: 1.5px solid #4f46e5;
+      outline: none;
+      background: #fff;
+    }
+    textarea {
+      min-height: 44px;
+      resize: vertical;
+    }
+    .multi-select {
+      width: 100%;
+      min-height: 38px;
+      padding: 7px 12px;
+      font-size: 1em;
+      border-radius: 7px;
+      border: 1px solid #cbd5e1;
+      background: #f7f8fa;
+      margin-bottom: 2px;
+      box-sizing: border-box;
+    }
+    .description-point, .next-step-area {
+      background: #f8fafc;
+      padding: 11px 10px 10px 10px;
+      border-radius: 10px;
+      margin-bottom: 10px;
+      border: 1px solid #e6eaf2;
+      width: 100%;
+    }
+    .remove-btn, .add-btn {
+      background: #e11d48;
+      color: #fff;
+      border: none;
+      border-radius: 7px;
+      padding: 2px 11px;
+      margin-left: 7px;
+      font-size: 0.98em;
+      cursor: pointer;
+      font-weight: 600;
+      margin-top: 4px;
+      transition: background 0.2s;
+    }
+    .remove-btn:hover { background: #b91c1c; }
+    .add-btn {
+      background: #4f46e5;
+      margin-top: 8px;
+      margin-left: 0;
+    }
+    .add-btn:hover { background: #2563eb; }
+    .file-input-label {
+      margin-bottom: 4px;
+      font-weight: 600;
+    }
+    .form-actions {
+      text-align: center;
+      margin-top: 16px;
+    }
+    .submit-btn {
+      padding: 10px 28px;
+      font-size: 1em;
+      font-weight: 600;
+      color: #fff;
+      background: linear-gradient(90deg, #4f46e5, #2563eb);
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      box-shadow: 0 2px 8px rgba(52, 92, 172, 0.10);
+      transition: background 0.2s;
+    }
+    .submit-btn:hover {
+      background: linear-gradient(90deg, #2563eb, #4f46e5);
+    }
+    .form-success {
+      color: #0c7c3b;
+      font-weight: 600;
+      margin-top: 14px;
+      text-align: center;
+    }
+    .form-error {
+      color: #e11d48;
+      font-weight: 600;
+      margin-top: 14px;
+      text-align: center;
+    }
+    #childrenNamesGroup {
+      margin-top: 8px;
+      width: 100%;
+    }
+    #childrenNamesList {
+      margin-top: 5px;
+      margin-bottom: 5px;
+    }
+    .children-name-row {
+      display: flex;
+      gap: 7px;
+      margin-bottom: 3px;
+    }
+    .children-name-row input {
+      flex: 1;
+      min-width: 80px;
+    }
+    @media (max-width: 500px) {
+      .form-container {
+        padding: 11px 3px;
+        max-width: 99vw;
+      }
+      header { font-size: 1.1em; }
+      .form-title { font-size: 1em; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    CoordiNation - Problem Solving
+    <nav class="navbar">
+      <div class="nav-dropdown" tabindex="0">
+        <button class="nav-btn" aria-label="Open navigation" title="Navigate">&#9776;</button>
+        <div class="nav-content">
+          <a class="nav-link" href="index.html">Home</a>
+          <a class="nav-link" href="staff-directory.html">Staff Directory</a>
+          <a class="nav-link" href="observational-form.html">Observational Form</a>
+          <a class="nav-link" href="meeting-form.html">Meeting Form</a>
+          <a class="nav-link" href="meeting-history.html">Meeting History</a>
+          <a class="nav-link" href="problem-solving.html">Problem Solving</a>
+          <a class="nav-link" href="problem-history.html">Problem History</a>
+          <a class="nav-link" href="report-generator.html">Report Generator</a>
+          <a class="nav-link" href="supply-order-form.html">Supply Order Form</a>
+          <a class="nav-link" href="inventory.html">Inventory</a>
+        </div>
+      </div>
+    </nav>
+  </header>
+  <div class="form-container">
+    <div class="form-title">Problem Solving Form</div>
+    <form id="problemForm" autocomplete="off">
+      <div class="form-group">
+        <label for="meetingDropdown">Assign to Meeting</label>
+        <select id="meetingDropdown" class="multi-select" required>
+          <option value="" disabled selected>Select meeting</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="staffDropdown">Staff Involved</label>
+        <select id="staffDropdown" class="multi-select" multiple required style="height:80px;"></select>
+      </div>
+      <div class="form-group">
+        <label for="problemTitle">Problem Title</label>
+        <input type="text" id="problemTitle" required placeholder="Title">
+      </div>
+      <div class="form-group">
+        <label for="problemLocation">Location</label>
+        <input type="text" id="problemLocation" required placeholder="Location">
+      </div>
+      <div class="form-group">
+        <label for="problemPointsGroup">Problem Description (3 Points)</label>
+        <div id="problemPointsGroup"></div>
+        <button type="button" class="add-btn" id="addPointBtn">+ Add Description Point</button>
+      </div>
+      <div class="form-group">
+        <label>
+          <input type="checkbox" id="childrenInvolved"> Are children involved?
+        </label>
+      </div>
+      <div class="form-group" id="childrenNamesGroup" style="display:none;">
+        <label>Children Names (free entry):</label>
+        <div id="childrenNamesList"></div>
+        <button type="button" class="add-btn" id="addChildBtn">+ Add Child</button>
+      </div>
+      <div class="form-group">
+        <label for="attachments" class="file-input-label">Attachments/Photos (optional)</label>
+        <input type="file" id="attachments" multiple>
+      </div>
+      <div class="form-group" id="nextStepsGroup">
+        <label>Next Steps</label>
+        <div id="nextSteps"></div>
+        <button type="button" class="add-btn" id="addNextStepBtn">+ Add Next Step</button>
+      </div>
+      <div class="form-actions">
+        <button type="submit" class="submit-btn">Submit</button>
+        <div id="formSuccess" class="form-success" style="display:none;"></div>
+        <div id="formError" class="form-error" style="display:none;"></div>
+      </div>
+    </form>
+    <a id="history-link" href="problem-history.html" style="margin-top:14px;text-align:center;display:block;color:#2563eb;text-decoration:underline;font-weight:600;">View Problem History</a>
+  </div>
+  <!-- Firebase JS SDK -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
+    import { getFirestore, collection, getDocs, addDoc, doc, updateDoc, Timestamp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
+    import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-storage.js";
+
+    // Firebase config
+    const firebaseConfig = {
+      apiKey: "AIzaSyDXhHCNUsQoQ6SRYWYhPEPI811-2xTnlpE",
+      authDomain: "school-coordination.firebaseapp.com",
+      projectId: "school-coordination",
+      storageBucket: "school-coordination.firebasestorage.app",
+      messagingSenderId: "177630449005",
+      appId: "1:177630449005:web:50f8bd0ff1244d53c35e64"
+    };
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const storage = getStorage(app);
+
+    // Meetings dropdown
+    async function populateMeetingDropdown() {
+      const meetingSnap = await getDocs(collection(db, "meetings"));
+      const dropdown = document.getElementById('meetingDropdown');
+      meetingSnap.forEach(docSnap => {
+        const data = docSnap.data();
+        let display = `${data.meetingTitle || 'Untitled'} (${data.meetingDate || 'No date'})`;
+        dropdown.innerHTML += `<option value="${docSnap.id}">${display}</option>`;
+      });
+    }
+    populateMeetingDropdown();
+
+    // Staff dropdown
+    let staffList = [];
+    async function populateStaffDropdown() {
+      const staffSnap = await getDocs(collection(db, "staff"));
+      staffList = [];
+      const staffSelect = document.getElementById('staffDropdown');
+      staffSelect.innerHTML = '';
+      staffSnap.forEach(docSnap => {
+        const data = docSnap.data();
+        let name = data.displayName || data.name || data.email || docSnap.id;
+        staffList.push({ name, email: data.email || "" });
+        staffSelect.innerHTML += `<option value="${name}">${name}</option>`;
+      });
+    }
+    populateStaffDropdown();
+
+    // Problem Description Points
+    let pointCount = 0;
+    function addProblemPoint(text="") {
+      pointCount++;
+      const container = document.createElement('div');
+      container.className = "description-point";
+      container.innerHTML = `
+        <textarea class="problem-point-text" placeholder="Description point">${text}</textarea>
+        <button type="button" class="remove-btn">Remove</button>
+      `;
+      container.querySelector('.remove-btn').onclick = function() {
+        container.remove();
+      };
+      document.getElementById('problemPointsGroup').appendChild(container);
+    }
+    document.getElementById('addPointBtn').onclick = () => addProblemPoint();
+    // Add three initial points
+    for (let i=0; i<3; i++) { addProblemPoint(); }
+
+    // Children names dynamic field
+    function addChildNameRow(name="") {
+      const wrapper = document.createElement('div');
+      wrapper.className = "children-name-row";
+      wrapper.innerHTML = `
+        <input type="text" class="child-name-input" placeholder="Child's name" value="${name}">
+        <button type="button" class="remove-btn">Remove</button>
+      `;
+      wrapper.querySelector('.remove-btn').onclick = function() {
+        wrapper.remove();
+      };
+      document.getElementById('childrenNamesList').appendChild(wrapper);
+    }
+    document.getElementById('addChildBtn').onclick = () => addChildNameRow();
+
+    document.getElementById('childrenInvolved').onchange = function() {
+      document.getElementById('childrenNamesGroup').style.display = this.checked ? "block" : "none";
+    };
+
+    // Next Steps
+    function addNextStepArea(description="", responsible=[]) {
+      const container = document.createElement('div');
+      container.className = "next-step-area";
+      container.innerHTML = `
+        <label>Step Description</label>
+        <textarea class="next-step-desc" placeholder="Describe next step">${description}</textarea>
+        <label>Responsible Person(s)</label>
+        <select class="next-step-resp multi-select" multiple style="height:60px;">
+          ${staffList.map(s=>`<option value="${s.name}">${s.name}</option>`).join("")}
+        </select>
+        <div style="margin-top:7px;">
+          <input type="text" class="next-step-custom-name" placeholder="Custom name (optional)" style="width:48%;margin-right:2px;">
+          <input type="email" class="next-step-custom-email" placeholder="Custom email (optional)" style="width:48%;">
+        </div>
+        <button type="button" class="remove-btn">Remove</button>
+      `;
+      container.querySelector('.remove-btn').onclick = function() {
+        container.remove();
+      };
+      document.getElementById('nextSteps').appendChild(container);
+    }
+    document.getElementById('addNextStepBtn').onclick = () => addNextStepArea();
+    // Add two initial areas after staff loaded
+    function addInitialNextSteps() {
+      const nextStepsDiv = document.getElementById('nextSteps');
+      nextStepsDiv.innerHTML = '';
+      addNextStepArea();
+      addNextStepArea();
+    }
+    setTimeout(addInitialNextSteps, 600);
+
+    // Form submission
+    document.getElementById('problemForm').onsubmit = async function(e) {
+      e.preventDefault();
+      const formSuccess = document.getElementById('formSuccess');
+      const formError = document.getElementById('formError');
+      formSuccess.style.display = 'none';
+      formError.style.display = 'none';
+      // Collect values
+      const meetingId = document.getElementById('meetingDropdown').value;
+      const staffSelect = document.getElementById('staffDropdown');
+      const staffInvolved = Array.from(staffSelect.selectedOptions).map(opt=>opt.value);
+      const problemTitle = document.getElementById('problemTitle').value.trim();
+      const problemLocation = document.getElementById('problemLocation').value.trim();
+
+      // Problem points
+      const pointDivs = document.querySelectorAll('.description-point');
+      let problemPoints = [];
+      for (const d of pointDivs) {
+        const text = d.querySelector('.problem-point-text').value.trim();
+        if (text) problemPoints.push(text);
+      }
+      // Children
+      const childrenInvolved = document.getElementById('childrenInvolved').checked;
+      let childrenNames = [];
+      if (childrenInvolved) {
+        const childInputs = document.querySelectorAll('.child-name-input');
+        for (const c of childInputs) {
+          const name = c.value.trim();
+          if (name) childrenNames.push(name);
+        }
+      }
+
+      // Attachments
+      const files = document.getElementById('attachments').files;
+      let attachmentURLs = [];
+      // Next Steps
+      const nextStepDivs = document.querySelectorAll('.next-step-area');
+      let nextSteps = [];
+      for (const n of nextStepDivs) {
+        const desc = n.querySelector('.next-step-desc').value.trim();
+        const respSelect = n.querySelector('.next-step-resp');
+        const responsibleStaff = Array.from(respSelect.selectedOptions).map(opt=>opt.value);
+        const customName = n.querySelector('.next-step-custom-name').value.trim();
+        const customEmail = n.querySelector('.next-step-custom-email').value.trim();
+        let responsible = [...responsibleStaff];
+        if (customName) responsible.push(customName + (customEmail ? ` (${customEmail})` : ""));
+        nextSteps.push({ desc, responsible });
+      }
+
+      // Validation
+      if (!meetingId || staffInvolved.length === 0 || !problemTitle || !problemLocation || problemPoints.length === 0) {
+        formError.textContent = "Please fill out all required fields.";
+        formError.style.display = 'block';
+        return;
+      }
+
+      // Upload attachments (if any)
+      try {
+        if (files.length > 0) {
+          for (let i=0; i<files.length; i++) {
+            const file = files[i];
+            const storagePath = `problem_attachments/${Date.now()}_${file.name}`;
+            const fileRef = storageRef(storage, storagePath);
+            const snapshot = await uploadBytes(fileRef, file);
+            const url = await getDownloadURL(snapshot.ref);
+            attachmentURLs.push(url);
+          }
+        }
+      } catch (err) {
+        formError.textContent = "Error uploading attachments.";
+        formError.style.display = 'block';
+        return;
+      }
+
+      // Auto-generate time on submit
+      const now = new Date();
+      const submitTime = now.toISOString();
+
+      // Change log for creation
+      const changeLog = [{
+        who: "Admin", // You can replace with authenticated user if available
+        when: submitTime,
+        what: "Created problem"
+      }];
+
+      // Build problem data
+      const problemData = {
+        meetingId,
+        staffInvolved,
+        problemTitle,
+        problemLocation,
+        problemPoints,
+        childrenInvolved,
+        childrenNames,
+        attachmentURLs,
+        nextSteps,
+        changeLog,
+        status: "open",
+        createdAt: submitTime,
+        updatedAt: submitTime
+      };
+
+      try {
+        await addDoc(collection(db, "problems"), problemData);
+        formSuccess.textContent = "Problem submitted successfully!";
+        formSuccess.style.display = 'block';
+        formError.style.display = 'none';
+        document.getElementById('problemForm').reset();
+        document.getElementById('problemPointsGroup').innerHTML = "";
+        for (let i=0; i<3; i++) { addProblemPoint(); }
+        document.getElementById('childrenNamesList').innerHTML = "";
+        document.getElementById('childrenNamesGroup').style.display = "none";
+        setTimeout(addInitialNextSteps, 600);
+      } catch (err) {
+        formError.textContent = "Error submitting problem. Please try again.";
+        formError.style.display = 'block';
+        formSuccess.style.display = 'none';
+      }
+    };
+  </script>
+</body>
+</html>

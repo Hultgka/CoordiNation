@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>CoordiNation - Observation History</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Inter', Arial, sans-serif;
+      background: linear-gradient(135deg, #f8fafc, #e3e7ee 60%);
+      margin: 0;
+      min-height: 100vh;
+      color: #222;
+    }
+    header {
+      padding: 28px 0 12px 0;
+      text-align: center;
+      font-size: 2em;
+      font-weight: 600;
+      letter-spacing: 1px;
+      color: #2a3b4c;
+    }
+    .history-container {
+      background: #fff;
+      border-radius: 16px;
+      box-shadow: 0 2px 16px rgba(52,92,172,0.08);
+      max-width: 740px;
+      margin: 32px auto 0 auto;
+      padding: 30px 20px 24px 20px;
+      border: 1px solid #e6eaf2;
+    }
+    .history-title {
+      font-size: 1.3em;
+      font-weight: 600;
+      margin-bottom: 12px;
+      color: #374151;
+      text-align: center;
+      letter-spacing: 0.5px;
+    }
+    .filter-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 18px;
+      margin-bottom: 18px;
+      justify-content: center;
+      align-items: center;
+    }
+    .filter-bar > * {
+      font-size: 1em;
+    }
+    .filter-label {
+      font-weight: 600;
+      color: #374151;
+      margin-right: 6px;
+    }
+    .filter-input {
+      padding: 6px 10px;
+      border: 1px solid #cbd5e1;
+      border-radius: 7px;
+      background: #f7f8fa;
+      font-size: 1em;
+      min-width: 80px;
+    }
+    .filter-input[type="date"] {
+      min-width: 120px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+      background: #f9fafb;
+    }
+    th, td {
+      padding: 9px 7px;
+      text-align: left;
+      border-bottom: 1px solid #e6eaf2;
+      font-size: 0.98em;
+    }
+    th {
+      background: #eef2fa;
+      font-weight: 600;
+      color: #374151;
+    }
+    tr:last-child td {
+      border-bottom: none;
+    }
+    .no-data {
+      color: #666;
+      text-align: center;
+      font-size: 1em;
+      margin: 22px 0;
+    }
+    .back-link {
+      display: block;
+      margin: 18px auto 0 auto;
+      text-align: center;
+      background: none;
+      color: #2563eb;
+      font-weight: 600;
+      text-decoration: underline;
+      font-size: 1.05em;
+      border: none;
+      cursor: pointer;
+      transition: color 0.2s;
+    }
+    .back-link:hover {
+      color: #4f46e5;
+    }
+    @media (max-width: 800px) {
+      .history-container { max-width: 99vw; }
+      table { font-size: 0.95em; }
+    }
+    @media (max-width: 500px) {
+      .history-container { padding: 8px 1px; }
+      header { font-size: 1.1em; }
+      .history-title { font-size: 1em; }
+      th, td { font-size: 0.91em; }
+      .filter-bar { gap: 10px; }
+    }
+  </style>
+</head>
+<body>
+  <header>CoordiNation - Observation History</header>
+  <div class="history-container">
+    <div class="history-title">All Classroom Observations</div>
+    <div class="filter-bar">
+      <label class="filter-label" for="staffFilter">Staff Name:</label>
+      <input class="filter-input" type="text" id="staffFilter" placeholder="Search staff...">
+      <label class="filter-label" for="dateFilter">Specific Date:</label>
+      <input class="filter-input" type="date" id="dateFilter">
+      <label class="filter-label" for="startDateFilter">Start Date:</label>
+      <input class="filter-input" type="date" id="startDateFilter">
+      <label class="filter-label" for="endDateFilter">End Date:</label>
+      <input class="filter-input" type="date" id="endDateFilter">
+      <button id="clearFiltersBtn" class="filter-input" style="background:#eef2fa;font-weight:600;cursor:pointer;">Clear</button>
+    </div>
+    <div id="historyTableContainer">
+      <div class="no-data" id="noDataMsg" style="display:none;">No observations found.</div>
+      <table id="observationTable" style="display:none;">
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Staff</th>
+            <th>Observer</th>
+            <th>Stars</th>
+            <th>Wish</th>
+            <th>Lesson Plan</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <a class="back-link" href="observational-form.html">&larr; Back to Observational Form</a>
+  </div>
+  <!-- Firebase JS SDK -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
+    import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
+
+    // Your Firebase config
+    const firebaseConfig = {
+      apiKey: "AIzaSyDXhHCNUsQoQ6SRYWYhPEPI811-2xTnlpE",
+      authDomain: "school-coordination.firebaseapp.com",
+      projectId: "school-coordination",
+      storageBucket: "school-coordination.firebasestorage.app",
+      messagingSenderId: "177630449005",
+      appId: "1:177630449005:web:50f8bd0ff1244d53c35e64"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    let allObservations = [];
+
+    // Helper date compare (YYYY-MM-DD)
+    function isDateInRange(dateStr, startStr, endStr) {
+      if (!dateStr) return false;
+      const date = new Date(dateStr);
+      if (startStr && date < new Date(startStr)) return false;
+      if (endStr && date > new Date(endStr)) return false;
+      return true;
+    }
+    function isSameDate(dateStr, targetStr) {
+      return dateStr === targetStr;
+    }
+
+    // Render Table
+    function renderTable() {
+      const table = document.getElementById('observationTable');
+      const tbody = table.querySelector('tbody');
+      const noDataMsg = document.getElementById('noDataMsg');
+
+      const staffFilter = document.getElementById('staffFilter').value.trim().toLowerCase();
+      const dateFilter = document.getElementById('dateFilter').value;
+      const startDateFilter = document.getElementById('startDateFilter').value;
+      const endDateFilter = document.getElementById('endDateFilter').value;
+
+      let filtered = allObservations.filter(obs => {
+        // Staff name filter
+        const staffName = (obs.observedStaff || "").toLowerCase();
+        if (staffFilter && !staffName.includes(staffFilter)) return false;
+        // Specific date filter
+        if (dateFilter && obs.observationDate !== dateFilter) return false;
+        // Date range filter
+        if ((startDateFilter || endDateFilter) && !isDateInRange(obs.observationDate, startDateFilter, endDateFilter)) return false;
+        return true;
+      });
+
+      // Render
+      tbody.innerHTML = "";
+      if (filtered.length === 0) {
+        table.style.display = 'none';
+        noDataMsg.style.display = 'block';
+      } else {
+        table.style.display = 'table';
+        noDataMsg.style.display = 'none';
+        filtered.forEach(obs => {
+          const dateCell = obs.observationDate || '';
+          const staffCell = obs.observedStaff || '';
+          const observerCell = obs.observerName || '';
+          const starsCell = Array.isArray(obs.stars) ? obs.stars.map((s,i)=>`<b>★${i+1}</b> ${s}`).join('<br>') : '';
+          const wishCell = obs.wish || '';
+          let lessonPlanCell = '';
+          if (obs.lessonPlanSubmitted) {
+            if (obs.lessonPlanLink) {
+              lessonPlanCell = `<a href="${obs.lessonPlanLink}" target="_blank" rel="noopener noreferrer">View Lesson Plan</a>`;
+            } else {
+              lessonPlanCell = "Submitted";
+            }
+          } else {
+            lessonPlanCell = '<span style="color:#e11d48;">Not submitted</span>';
+          }
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td>${dateCell}</td>
+            <td>${staffCell}</td>
+            <td>${observerCell}</td>
+            <td>${starsCell}</td>
+            <td>${wishCell}</td>
+            <td>${lessonPlanCell}</td>
+          `;
+          tbody.appendChild(tr);
+        });
+      }
+    }
+
+    // Load Observations
+    async function loadObservations() {
+      const table = document.getElementById('observationTable');
+      const noDataMsg = document.getElementById('noDataMsg');
+      table.style.display = 'none';
+      noDataMsg.style.display = 'none';
+      allObservations = [];
+      try {
+        const snap = await getDocs(collection(db, "observations"));
+        snap.forEach(doc => {
+          allObservations.push(doc.data());
+        });
+        renderTable();
+      } catch (err) {
+        noDataMsg.textContent = "Error loading observations.";
+        noDataMsg.style.display = 'block';
+      }
+    }
+
+    // Filter Events
+    document.getElementById('staffFilter').addEventListener('input', renderTable);
+    document.getElementById('dateFilter').addEventListener('change', function() {
+      // Clear date range if specific date selected
+      if (this.value) {
+        document.getElementById('startDateFilter').value = '';
+        document.getElementById('endDateFilter').value = '';
+      }
+      renderTable();
+    });
+    document.getElementById('startDateFilter').addEventListener('change', function() {
+      // Clear specific date if range selected
+      if (this.value || document.getElementById('endDateFilter').value) {
+        document.getElementById('dateFilter').value = '';
+      }
+      renderTable();
+    });
+    document.getElementById('endDateFilter').addEventListener('change', function() {
+      // Clear specific date if range selected
+      if (this.value || document.getElementById('startDateFilter').value) {
+        document.getElementById('dateFilter').value = '';
+      }
+      renderTable();
+    });
+    document.getElementById('clearFiltersBtn').addEventListener('click', function() {
+      document.getElementById('staffFilter').value = '';
+      document.getElementById('dateFilter').value = '';
+      document.getElementById('startDateFilter').value = '';
+      document.getElementById('endDateFilter').value = '';
+      renderTable();
+    });
+
+    loadObservations();
+  </script>
+</body>
+</html>

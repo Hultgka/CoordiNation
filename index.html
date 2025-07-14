@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>CoordiNation</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!-- Google Fonts for modern look -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Inter', Arial, sans-serif;
+      background: linear-gradient(135deg, #f8fafc, #e3e7ee 60%);
+      margin: 0;
+      min-height: 100vh;
+      color: #222;
+    }
+    header {
+      padding: 32px 0 16px 0;
+      text-align: center;
+      font-size: 2.5em;
+      font-weight: 600;
+      letter-spacing: 1px;
+      color: #2a3b4c;
+      position: relative;
+    }
+    .navbar {
+      position: absolute;
+      top: 22px;
+      right: 22px;
+      z-index: 100;
+    }
+    .nav-dropdown {
+      position: relative;
+      display: inline-block;
+    }
+    .nav-btn {
+      background: none;
+      color: #4f46e5;
+      border: none;
+      font-size: 2em;
+      cursor: pointer;
+      padding: 0 6px;
+      border-radius: 6px;
+      transition: background 0.2s;
+    }
+    .nav-btn:hover, .nav-btn:focus {
+      background: #e3e7ee;
+      outline: none;
+    }
+    .nav-content {
+      display: none;
+      position: absolute;
+      right: 0;
+      background: #fff;
+      min-width: 170px;
+      box-shadow: 0 4px 16px rgba(52, 92, 172, 0.14);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .nav-dropdown:focus-within .nav-content,
+    .nav-dropdown:hover .nav-content {
+      display: block;
+    }
+    .nav-link {
+      color: #222;
+      padding: 11px 18px;
+      text-decoration: none;
+      display: block;
+      font-size: 1em;
+      border-bottom: 1px solid #e6eaf2;
+      background: #fff;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .nav-link:last-child { border-bottom: none; }
+    .nav-link:hover { background: #e3e7ee; }
+
+    .welcome {
+      text-align: center;
+      font-size: 1.15em;
+      color: #4a5568;
+      margin-bottom: 36px;
+    }
+    .cards {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 32px;
+      max-width: 900px;
+      margin: 0 auto 48px auto;
+    }
+    .card {
+      background: #fff;
+      border-radius: 16px;
+      box-shadow: 0 2px 16px rgba(52, 92, 172, 0.08);
+      width: 230px;
+      padding: 32px 18px 20px 18px;
+      text-align: center;
+      transition: box-shadow 0.2s;
+      cursor: pointer;
+      border: 1px solid #e6eaf2;
+    }
+    .card:hover {
+      box-shadow: 0 4px 24px rgba(52, 92, 172, 0.18);
+      border-color: #c7d2fe;
+    }
+    .card-title {
+      font-weight: 600;
+      font-size: 1.15em;
+      margin-bottom: 10px;
+      color: #374151;
+    }
+    .card-desc {
+      color: #606c80;
+      font-size: 0.98em;
+      margin-bottom: 8px;
+    }
+    .admin-login-btn {
+      display: block;
+      margin: 0 auto 32px auto;
+      padding: 12px 36px;
+      font-size: 1em;
+      font-weight: 600;
+      color: #fff;
+      background: linear-gradient(90deg, #4f46e5, #2563eb);
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      box-shadow: 0 2px 8px rgba(52, 92, 172, 0.10);
+      transition: background 0.2s;
+    }
+    .admin-login-btn:hover {
+      background: linear-gradient(90deg, #2563eb, #4f46e5);
+    }
+    /* Modal styles */
+    .modal-bg {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.22);
+      justify-content: center;
+      align-items: center;
+      z-index: 99;
+    }
+    .modal {
+      background: #fff;
+      border-radius: 14px;
+      padding: 32px 28px 22px 28px;
+      box-shadow: 0 8px 48px rgba(52, 92, 172, 0.18);
+      min-width: 320px;
+      text-align: center;
+      position: relative;
+    }
+    .modal input {
+      font-size: 1em;
+      padding: 9px 12px;
+      margin: 8px 0;
+      width: 85%;
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      background: #f7f8fa;
+      transition: border 0.2s;
+    }
+    .modal input:focus {
+      border: 1.5px solid #4f46e5;
+      outline: none;
+      background: #fff;
+    }
+    .modal label {
+      font-size: 0.97em;
+      color: #505a6b;
+      display: block;
+      margin-top: 10px;
+      text-align: left;
+      margin-left: 17px;
+    }
+    .modal .close-btn {
+      position: absolute;
+      top: 14px;
+      right: 17px;
+      font-size: 1.1em;
+      background: none;
+      border: none;
+      color: #999;
+      cursor: pointer;
+      padding: 3px;
+      border-radius: 4px;
+    }
+    .modal .close-btn:hover {
+      background: #f2f4fa;
+    }
+    .modal .modal-submit {
+      margin-top: 18px;
+      padding: 10px 34px;
+      font-size: 1em;
+      font-weight: 600;
+      color: #fff;
+      background: linear-gradient(90deg, #4f46e5, #2563eb);
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      box-shadow: 0 2px 8px rgba(52, 92, 172, 0.10);
+      transition: background 0.2s;
+    }
+    .modal .modal-submit:hover {
+      background: linear-gradient(90deg, #2563eb, #4f46e5);
+    }
+    .modal .error {
+      color: #e11d48;
+      font-size: 0.98em;
+      margin-top: 10px;
+      margin-bottom: -4px;
+      min-height: 20px;
+    }
+    @media (max-width: 700px) {
+      .cards {
+        flex-direction: column;
+        align-items: center;
+      }
+      .card {
+        width: 92vw;
+        max-width: 330px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    CoordiNation
+    <nav class="navbar">
+      <div class="nav-dropdown" tabindex="0">
+        <button class="nav-btn" aria-label="Open navigation" title="Navigate">
+          &#9776;
+        </button>
+        <div class="nav-content">
+          <a class="nav-link" href="index.html">Landing Page</a>
+          <a class="nav-link" href="staff-directory.html">Staff Directory</a>
+          <a class="nav-link" href="observational-form.html">Observational Form</a>
+          <a class="nav-link" href="meeting-notes.html">Meeting Notes</a>
+          <a class="nav-link" href="problem-solving.html">Problem Solving</a>
+          <a class="nav-link" href="report-generator.html">Report Generator</a>
+          <a class="nav-link" href="supply-order-form.html">Supply Order Form</a>
+          <a class="nav-link" href="inventory.html">Inventory</a>
+        </div>
+      </div>
+    </nav>
+  </header>
+  <div class="welcome">
+    Welcome to the School Coordination Platform!<br>
+    Please select an area below to get started.
+  </div>
+  <div class="cards">
+    <div class="card" onclick="navigate('staff-directory')">
+      <div class="card-title">Staff Directory</div>
+      <div class="card-desc">View and manage staff information.</div>
+    </div>
+    <div class="card" onclick="navigate('observational-form')">
+      <div class="card-title">Observational Form</div>
+      <div class="card-desc">Document classroom observations (3 stars &amp; a wish).</div>
+    </div>
+    <div class="card" onclick="navigate('meeting-notes')">
+      <div class="card-title">Meeting Notes</div>
+      <div class="card-desc">Record meeting main points and next steps.</div>
+    </div>
+    <div class="card" onclick="navigate('problem-solving')">
+      <div class="card-title">Problem Solving</div>
+      <div class="card-desc">Log issues, solutions, and next steps.</div>
+    </div>
+    <div class="card" onclick="navigate('report-generator')">
+      <div class="card-title">Report Generator</div>
+      <div class="card-desc">Export customized printable reports.</div>
+    </div>
+    <div class="card" onclick="navigate('supply-order-form')">
+      <div class="card-title">Supply Order Form</div>
+      <div class="card-desc">Request supplies and track approvals.</div>
+    </div>
+    <div class="card" onclick="navigate('inventory')">
+      <div class="card-title">Inventory</div>
+      <div class="card-desc">View and analyze supply usage trends.</div>
+    </div>
+  </div>
+  <button class="admin-login-btn" id="adminLoginBtn">Admin Login</button>
+
+  <!-- Admin Login Modal -->
+  <div class="modal-bg" id="modalBg">
+    <div class="modal" id="adminModal">
+      <button class="close-btn" id="closeModalBtn">&times;</button>
+      <h2>Admin Login</h2>
+      <form id="loginForm">
+        <label for="loginEmail">Email</label>
+        <input id="loginEmail" type="email" placeholder="Email" required autofocus>
+        <label for="loginPassword">Password</label>
+        <input id="loginPassword" type="password" placeholder="Password" required>
+        <div class="error" id="loginError"></div>
+        <button type="submit" class="modal-submit">Login</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Admin Dashboard Modal (shows after login if admin) -->
+  <div class="modal-bg" id="adminDashboardBg" style="display:none;">
+    <div class="modal" id="adminDashboardModal">
+      <button class="close-btn" id="closeDashboardBtn">&times;</button>
+      <h2>Admin Dashboard</h2>
+      <div id="adminGreeting"></div>
+      <div id="addAdminSection" style="display:none;">
+        <h3>Add New Admin</h3>
+        <form id="addAdminForm">
+          <label for="newAdminEmail">Email</label>
+          <input id="newAdminEmail" type="email" placeholder="Admin Email" required>
+          <label for="newAdminPassword">Password</label>
+          <input id="newAdminPassword" type="password" placeholder="Admin Password" required>
+          <div class="error" id="addAdminError"></div>
+          <button type="submit" class="modal-submit">Add Admin</button>
+        </form>
+      </div>
+      <div id="otherAdmins"></div>
+    </div>
+  </div>
+
+  <!-- Firebase JS SDK -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
+    import { getFirestore, doc, setDoc, getDoc, collection, getDocs } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
+    import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
+
+    // Your Firebase config
+    const firebaseConfig = {
+      apiKey: "AIzaSyDXhHCNUsQoQ6SRYWYhPEPI811-2xTnlpE",
+      authDomain: "school-coordination.firebaseapp.com",
+      projectId: "school-coordination",
+      storageBucket: "school-coordination.firebasestorage.app",
+      messagingSenderId: "177630449005",
+      appId: "1:177630449005:web:50f8bd0ff1244d53c35e64"
+    };
+
+    // Initialize Firebase and Firestore
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const auth = getAuth(app);
+
+    // Navigation logic (now using actual routing)
+    window.navigate = function(page) {
+      window.location.href = page + ".html";
+    };
+
+    // Modal logic
+    const adminLoginBtn = document.getElementById('adminLoginBtn');
+    const modalBg = document.getElementById('modalBg');
+    const closeModalBtn = document.getElementById('closeModalBtn');
+    adminLoginBtn.onclick = () => { modalBg.style.display = 'flex'; };
+    closeModalBtn.onclick = () => { modalBg.style.display = 'none'; document.getElementById('loginError').textContent = ""; };
+    modalBg.onclick = (e) => { if (e.target === modalBg) { modalBg.style.display = 'none'; document.getElementById('loginError').textContent = ""; } };
+
+    // Admin Dashboard Modal
+    const adminDashboardBg = document.getElementById('adminDashboardBg');
+    const closeDashboardBtn = document.getElementById('closeDashboardBtn');
+    closeDashboardBtn.onclick = () => { adminDashboardBg.style.display = 'none'; };
+
+    // Utility to check if user is super-admin
+    function isSuperAdmin(email) {
+      // You can change this to your actual main admin email!
+      return email.toLowerCase() === "karissahultgren@school-coordination.com";
+    }
+
+    // Handle login form
+    document.getElementById('loginForm').onsubmit = async function(e) {
+      e.preventDefault();
+      const email = document.getElementById('loginEmail').value.trim().toLowerCase();
+      const password = document.getElementById('loginPassword').value;
+      const errorElem = document.getElementById('loginError');
+      errorElem.textContent = "";
+
+      try {
+        const userCredential = await signInWithEmailAndPassword(auth, email, password);
+        const uid = userCredential.user.uid;
+
+        // Check if user is in admins collection
+        const adminDocRef = doc(db, "admins", uid);
+        const adminDocSnap = await getDoc(adminDocRef);
+        if (!adminDocSnap.exists()) {
+          errorElem.textContent = "You do not have admin access.";
+          return;
+        }
+
+        // Show admin dashboard
+        modalBg.style.display = 'none';
+        showAdminDashboard(email, uid, adminDocSnap.data());
+      } catch (err) {
+        errorElem.textContent = "Login failed. Please check your credentials.";
+      }
+    };
+
+    // Show admin dashboard modal
+    async function showAdminDashboard(email, uid, adminData) {
+      adminDashboardBg.style.display = 'flex';
+      document.getElementById('adminGreeting').textContent = `Welcome, ${adminData.displayName || email}!`;
+
+      // Only show add admin form for super admin
+      if (isSuperAdmin(email)) {
+        document.getElementById('addAdminSection').style.display = 'block';
+      } else {
+        document.getElementById('addAdminSection').style.display = 'none';
+      }
+
+      // List all admins
+      const adminsListElem = document.getElementById('otherAdmins');
+      adminsListElem.innerHTML = "<h3>Current Admins:</h3>";
+      const adminsSnap = await getDocs(collection(db, "admins"));
+      adminsSnap.forEach(docSnap => {
+        const data = docSnap.data();
+        adminsListElem.innerHTML += `<div>${data.displayName || data.email || docSnap.id}</div>`;
+      });
+    }
+
+    // Handle add admin form (only super admin can do this)
+    document.getElementById('addAdminForm').onsubmit = async function(e) {
+      e.preventDefault();
+      const email = document.getElementById('newAdminEmail').value.trim().toLowerCase();
+      const password = document.getElementById('newAdminPassword').value;
+      const errorElem = document.getElementById('addAdminError');
+      errorElem.textContent = "";
+
+      try {
+        // Create new admin account in Firebase Auth
+        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+        const uid = userCredential.user.uid;
+
+        // Add admin record in Firestore
+        await setDoc(doc(db, "admins", uid), {
+          email,
+          displayName: email.split('@')[0],
+          createdBy: auth.currentUser.email,
+          createdAt: new Date().toISOString()
+        });
+
+        errorElem.textContent = "Admin added successfully!";
+        document.getElementById('addAdminForm').reset();
+        showAdminDashboard(auth.currentUser.email, auth.currentUser.uid, { displayName: "Super Admin" });
+      } catch (err) {
+        errorElem.textContent = err.message.includes("already") ? "Email already exists." : "Failed to add admin";
+      }
+    };
+
+    // OPTIONAL: Pre-create the super admin in Firestore if not present (run once in console or in setup)
+    // (You must manually create the super-admin Firebase Auth account via Firebase Console or admin form)
+    // async function ensureSuperAdmin() {
+    //   const email = "karissahultgren@school-coordination.com";
+    //   const superAdminDocRef = doc(db, "admins", "<SUPER_ADMIN_UID>");
+    //   await setDoc(superAdminDocRef, {
+    //     email,
+    //     displayName: "Karissahultgren",
+    //     createdBy: email,
+    //     createdAt: new Date().toISOString()
+    //   });
+    // }
+    // ensureSuperAdmin();
+
+  </script>
+</body>
+</html>

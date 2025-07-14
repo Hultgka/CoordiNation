@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>CoordiNation - Observational Form</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Inter', Arial, sans-serif;
+      background: linear-gradient(135deg, #f8fafc, #e3e7ee 60%);
+      margin: 0;
+      min-height: 100vh;
+      color: #222;
+    }
+    header {
+      padding: 28px 0 12px 0;
+      text-align: center;
+      font-size: 2em;
+      font-weight: 600;
+      letter-spacing: 1px;
+      color: #2a3b4c;
+      position: relative;
+    }
+    .navbar {
+      position: absolute;
+      top: 22px;
+      right: 22px;
+      z-index: 100;
+    }
+    .nav-dropdown {
+      position: relative;
+      display: inline-block;
+    }
+    .nav-btn {
+      background: none;
+      color: #4f46e5;
+      border: none;
+      font-size: 2em;
+      cursor: pointer;
+      padding: 0 6px;
+      border-radius: 6px;
+      transition: background 0.2s;
+    }
+    .nav-btn:hover, .nav-btn:focus {
+      background: #e3e7ee;
+      outline: none;
+    }
+    .nav-content {
+      display: none;
+      position: absolute;
+      right: 0;
+      background: #fff;
+      min-width: 170px;
+      box-shadow: 0 4px 16px rgba(52, 92, 172, 0.14);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .nav-dropdown:focus-within .nav-content,
+    .nav-dropdown:hover .nav-content {
+      display: block;
+    }
+    .nav-link {
+      color: #222;
+      padding: 11px 18px;
+      text-decoration: none;
+      display: block;
+      font-size: 1em;
+      border-bottom: 1px solid #e6eaf2;
+      background: #fff;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .nav-link:last-child { border-bottom: none; }
+    .nav-link:hover { background: #e3e7ee; }
+
+    .form-container {
+      background: #fff;
+      border-radius: 16px;
+      box-shadow: 0 2px 16px rgba(52, 92, 172, 0.08);
+      max-width: 360px;
+      margin: 40px auto 0 auto;
+      padding: 28px 18px 22px 18px;
+      border: 1px solid #e6eaf2;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .form-title {
+      font-size: 1.3em;
+      font-weight: 600;
+      color: #374151;
+      margin-bottom: 12px;
+      text-align: center;
+      letter-spacing: 0.5px;
+    }
+    form {
+      width: 100%;
+    }
+    .form-group {
+      margin-bottom: 15px;
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+    }
+    label {
+      font-size: 1em;
+      font-weight: 600;
+      color: #374151;
+      margin-bottom: 6px;
+      margin-left: 2px;
+      text-align: left;
+    }
+    input[type="text"],
+    input[type="date"],
+    input[type="url"],
+    textarea,
+    select {
+      width: 100%;
+      padding: 8px 12px;
+      font-size: 1em;
+      border-radius: 8px;
+      border: 1px solid #cbd5e1;
+      background: #f7f8fa;
+      margin-bottom: 2px;
+      transition: border 0.2s;
+      box-sizing: border-box;
+    }
+    input:focus, textarea:focus, select:focus {
+      border: 1.5px solid #4f46e5;
+      outline: none;
+      background: #fff;
+    }
+    textarea {
+      min-height: 44px;
+      resize: vertical;
+    }
+    .form-actions {
+      text-align: center;
+      margin-top: 16px;
+    }
+    .submit-btn {
+      padding: 10px 28px;
+      font-size: 1em;
+      font-weight: 600;
+      color: #fff;
+      background: linear-gradient(90deg, #4f46e5, #2563eb);
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      box-shadow: 0 2px 8px rgba(52, 92, 172, 0.10);
+      transition: background 0.2s;
+    }
+    .submit-btn:hover {
+      background: linear-gradient(90deg, #2563eb, #4f46e5);
+    }
+    .form-success {
+      color: #0c7c3b;
+      font-weight: 600;
+      margin-top: 14px;
+      text-align: center;
+    }
+    .form-error {
+      color: #e11d48;
+      font-weight: 600;
+      margin-top: 14px;
+      text-align: center;
+    }
+    .lesson-link-container {
+      margin-top: 8px;
+      margin-bottom: 8px;
+      display: none;
+      animation: fadeIn 0.3s;
+      width: 100%;
+    }
+    #history-link {
+      display: block;
+      margin: 18px auto 0 auto;
+      text-align: center;
+      background: none;
+      color: #2563eb;
+      font-weight: 600;
+      text-decoration: underline;
+      font-size: 1.05em;
+      border: none;
+      cursor: pointer;
+      transition: color 0.2s;
+    }
+    #history-link:hover {
+      color: #4f46e5;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+    @media (max-width: 450px) {
+      .form-container {
+        padding: 11px 3px;
+        max-width: 99vw;
+      }
+      header { font-size: 1.1em; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    CoordiNation - Observational Form
+    <nav class="navbar">
+      <div class="nav-dropdown" tabindex="0">
+        <button class="nav-btn" aria-label="Open navigation" title="Navigate">&#9776;</button>
+        <div class="nav-content">
+          <a class="nav-link" href="index.html">Home</a>
+          <a class="nav-link" href="staff-directory.html">Staff Directory</a>
+          <a class="nav-link" href="observational-form.html">Observational Form</a>
+          <a class="nav-link" href="meeting-notes.html">Meeting Notes</a>
+          <a class="nav-link" href="problem-solving.html">Problem Solving</a>
+          <a class="nav-link" href="report-generator.html">Report Generator</a>
+          <a class="nav-link" href="supply-order-form.html">Supply Order Form</a>
+          <a class="nav-link" href="inventory.html">Inventory</a>
+        </div>
+      </div>
+    </nav>
+  </header>
+
+  <div class="form-container">
+    <div class="form-title">Classroom Observation</div>
+    <form id="observationForm" autocomplete="off">
+      <div class="form-group">
+        <label for="observedStaff">Observed Staff</label>
+        <select id="observedStaff" required>
+          <option value="">Loading...</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="observationDate">Date</label>
+        <input type="date" id="observationDate" required>
+      </div>
+      <div class="form-group">
+        <label for="observerName">Observer Name</label>
+        <input type="text" id="observerName" required placeholder="Your Name">
+      </div>
+      <div class="form-group">
+        <label>Three Stars</label>
+        <input type="text" id="star1" required placeholder="Star #1">
+        <input type="text" id="star2" required placeholder="Star #2">
+        <input type="text" id="star3" required placeholder="Star #3">
+      </div>
+      <div class="form-group">
+        <label for="wish">A Wish</label>
+        <textarea id="wish" required placeholder="What is one wish for improvement?"></textarea>
+      </div>
+      <div class="form-group">
+        <label>
+          <input type="checkbox" id="lessonPlanCheckbox">
+          Submitted Lesson Plan?
+        </label>
+        <div class="lesson-link-container" id="lessonLinkContainer">
+          <label for="lessonPlanLink">Lesson Plan Link</label>
+          <input type="url" id="lessonPlanLink" placeholder="Paste lesson plan URL here">
+        </div>
+      </div>
+      <div class="form-actions">
+        <button type="submit" class="submit-btn">Submit</button>
+        <div id="formSuccess" class="form-success" style="display:none;"></div>
+        <div id="formError" class="form-error" style="display:none;"></div>
+      </div>
+    </form>
+    <a id="history-link" href="observation-history.html">View Observation History</a>
+  </div>
+
+  <!-- Firebase JS SDK -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
+    import { getFirestore, collection, getDocs, addDoc } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
+
+    // Your Firebase config
+    const firebaseConfig = {
+      apiKey: "AIzaSyDXhHCNUsQoQ6SRYWYhPEPI811-2xTnlpE",
+      authDomain: "school-coordination.firebaseapp.com",
+      projectId: "school-coordination",
+      storageBucket: "school-coordination.firebasestorage.app",
+      messagingSenderId: "177630449005",
+      appId: "1:177630449005:web:50f8bd0ff1244d53c35e64"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    // Populate staff dropdown
+    const observedStaffSelect = document.getElementById('observedStaff');
+    async function populateStaffDropdown() {
+      observedStaffSelect.innerHTML = '<option value="">Loading...</option>';
+      try {
+        const staffSnap = await getDocs(collection(db, "staff"));
+        if (staffSnap.empty) {
+          observedStaffSelect.innerHTML = '<option value="">No staff found</option>';
+        } else {
+          observedStaffSelect.innerHTML = '<option value="">Select staff</option>';
+          staffSnap.forEach(docSnap => {
+            const data = docSnap.data();
+            let name = data.displayName || data.name || data.email || docSnap.id;
+            observedStaffSelect.innerHTML += `<option value="${name}">${name}</option>`;
+          });
+        }
+      } catch (err) {
+        observedStaffSelect.innerHTML = '<option value="">Error loading staff</option>';
+      }
+    }
+    populateStaffDropdown();
+
+    // Lesson Plan Checkbox logic
+    const lessonPlanCheckbox = document.getElementById('lessonPlanCheckbox');
+    const lessonLinkContainer = document.getElementById('lessonLinkContainer');
+    const lessonPlanLink = document.getElementById('lessonPlanLink');
+    lessonPlanCheckbox.addEventListener('change', function() {
+      if (lessonPlanCheckbox.checked) {
+        lessonLinkContainer.style.display = 'block';
+        lessonPlanLink.required = true;
+      } else {
+        lessonLinkContainer.style.display = 'none';
+        lessonPlanLink.value = '';
+        lessonPlanLink.required = false;
+      }
+    });
+
+    // Form submission
+    document.getElementById('observationForm').onsubmit = async function(e) {
+      e.preventDefault();
+      const formSuccess = document.getElementById('formSuccess');
+      const formError = document.getElementById('formError');
+      formSuccess.style.display = 'none';
+      formError.style.display = 'none';
+
+      const observedStaff = observedStaffSelect.value;
+      const observationDate = document.getElementById('observationDate').value;
+      const observerName = document.getElementById('observerName').value.trim();
+      const star1 = document.getElementById('star1').value.trim();
+      const star2 = document.getElementById('star2').value.trim();
+      const star3 = document.getElementById('star3').value.trim();
+      const wish = document.getElementById('wish').value.trim();
+      const lessonPlanSubmitted = lessonPlanCheckbox.checked;
+      const lessonPlanLinkValue = lessonPlanLink.value.trim();
+
+      // Field validation
+      if (!observedStaff || !observationDate || !observerName || !star1 || !star2 || !star3 || !wish) {
+        formError.textContent = "Please fill out all required fields.";
+        formError.style.display = 'block';
+        return;
+      }
+      if (lessonPlanSubmitted && !lessonPlanLinkValue) {
+        formError.textContent = "Please provide the lesson plan link.";
+        formError.style.display = 'block';
+        return;
+      }
+
+      const observationData = {
+        observedStaff,
+        observationDate,
+        observerName,
+        stars: [star1, star2, star3],
+        wish,
+        lessonPlanSubmitted,
+        lessonPlanLink: lessonPlanSubmitted ? lessonPlanLinkValue : "",
+        timestamp: new Date().toISOString()
+      };
+
+      try {
+        await addDoc(collection(db, "observations"), observationData);
+        formSuccess.textContent = "Observation submitted successfully!";
+        formSuccess.style.display = 'block';
+        formError.style.display = 'none';
+        document.getElementById('observationForm').reset();
+        lessonLinkContainer.style.display = 'none';
+      } catch (err) {
+        formError.textContent = "Error submitting observation. Please try again.";
+        formError.style.display = 'block';
+        formSuccess.style.display = 'none';
+      }
+    };
+  </script>
+</body>
+</html>

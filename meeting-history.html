@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>CoordiNation - Meeting History</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Inter', Arial, sans-serif;
+      background: linear-gradient(135deg, #f8fafc, #e3e7ee 60%);
+      margin: 0;
+      min-height: 100vh;
+      color: #222;
+    }
+    header {
+      padding: 28px 0 12px 0;
+      text-align: center;
+      font-size: 2em;
+      font-weight: 600;
+      letter-spacing: 1px;
+      color: #2a3b4c;
+    }
+    .history-container {
+      background: #fff;
+      border-radius: 16px;
+      box-shadow: 0 2px 16px rgba(52,92,172,0.08);
+      max-width: 900px;
+      margin: 32px auto 0 auto;
+      padding: 30px 20px 24px 20px;
+      border: 1px solid #e6eaf2;
+    }
+    .history-title {
+      font-size: 1.3em;
+      font-weight: 600;
+      margin-bottom: 12px;
+      color: #374151;
+      text-align: center;
+      letter-spacing: 0.5px;
+    }
+    .filter-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 18px;
+      margin-bottom: 18px;
+      justify-content: center;
+      align-items: center;
+    }
+    .filter-bar > * {
+      font-size: 1em;
+    }
+    .filter-label {
+      font-weight: 600;
+      color: #374151;
+      margin-right: 6px;
+    }
+    .filter-input {
+      padding: 6px 10px;
+      border: 1px solid #cbd5e1;
+      border-radius: 7px;
+      background: #f7f8fa;
+      font-size: 1em;
+      min-width: 80px;
+    }
+    .filter-input[type="date"] {
+      min-width: 120px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+      background: #f9fafb;
+    }
+    th, td {
+      padding: 9px 7px;
+      text-align: left;
+      border-bottom: 1px solid #e6eaf2;
+      font-size: 0.98em;
+      vertical-align: top;
+    }
+    th {
+      background: #eef2fa;
+      font-weight: 600;
+      color: #374151;
+    }
+    tr:last-child td {
+      border-bottom: none;
+    }
+    .no-data {
+      color: #666;
+      text-align: center;
+      font-size: 1em;
+      margin: 22px 0;
+    }
+    .back-link {
+      display: block;
+      margin: 18px auto 0 auto;
+      text-align: center;
+      background: none;
+      color: #2563eb;
+      font-weight: 600;
+      text-decoration: underline;
+      font-size: 1.05em;
+      border: none;
+      cursor: pointer;
+      transition: color 0.2s;
+    }
+    .back-link:hover {
+      color: #4f46e5;
+    }
+    .attachment-link {
+      color: #2563eb;
+      text-decoration: underline;
+      font-weight: 600;
+      margin-right: 5px;
+      font-size: 0.97em;
+    }
+    .discussion-heading {
+      font-weight: 600;
+      color: #2a3b4c;
+      font-size: 0.98em;
+    }
+    .next-step-block {
+      margin-bottom: 4px;
+      background: #f1f5fb;
+      border-radius: 7px;
+      padding: 5px 7px;
+    }
+    @media (max-width: 1100px) {
+      .history-container { max-width: 99vw; }
+      table { font-size: 0.95em; }
+    }
+    @media (max-width: 600px) {
+      .history-container { padding: 8px 1px; }
+      header { font-size: 1.1em; }
+      .history-title { font-size: 1em; }
+      th, td { font-size: 0.91em; }
+      .filter-bar { gap: 10px; }
+    }
+  </style>
+</head>
+<body>
+  <header>CoordiNation - Meeting History</header>
+  <div class="history-container">
+    <div class="history-title">All Meetings</div>
+    <div class="filter-bar">
+      <label class="filter-label" for="titleFilter">Title:</label>
+      <input class="filter-input" type="text" id="titleFilter" placeholder="Search title...">
+      <label class="filter-label" for="participantFilter">Participant:</label>
+      <input class="filter-input" type="text" id="participantFilter" placeholder="Search participant...">
+      <label class="filter-label" for="locationFilter">Location:</label>
+      <input class="filter-input" type="text" id="locationFilter" placeholder="Search location...">
+      <label class="filter-label" for="dateFilter">Specific Date:</label>
+      <input class="filter-input" type="date" id="dateFilter">
+      <label class="filter-label" for="startDateFilter">Start Date:</label>
+      <input class="filter-input" type="date" id="startDateFilter">
+      <label class="filter-label" for="endDateFilter">End Date:</label>
+      <input class="filter-input" type="date" id="endDateFilter">
+      <button id="clearFiltersBtn" class="filter-input" style="background:#eef2fa;font-weight:600;cursor:pointer;">Clear</button>
+    </div>
+    <div id="historyTableContainer">
+      <div class="no-data" id="noDataMsg" style="display:none;">No meetings found.</div>
+      <table id="meetingTable" style="display:none;">
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Time</th>
+            <th>Title/Type</th>
+            <th>Location</th>
+            <th>Participants</th>
+            <th>Discussions</th>
+            <th>Next Steps</th>
+            <th>Observations</th>
+            <th>Attachments</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <a class="back-link" href="meeting-form.html">&larr; Back to Meeting Form</a>
+  </div>
+  <!-- Firebase JS SDK -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
+    import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
+
+    // Your Firebase config
+    const firebaseConfig = {
+      apiKey: "AIzaSyDXhHCNUsQoQ6SRYWYhPEPI811-2xTnlpE",
+      authDomain: "school-coordination.firebaseapp.com",
+      projectId: "school-coordination",
+      storageBucket: "school-coordination.firebasestorage.app",
+      messagingSenderId: "177630449005",
+      appId: "1:177630449005:web:50f8bd0ff1244d53c35e64"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    let allMeetings = [];
+    let observationMap = {}; // For displaying linked observation info
+
+    // Helper: Date compare (YYYY-MM-DD)
+    function isDateInRange(dateStr, startStr, endStr) {
+      if (!dateStr) return false;
+      const date = new Date(dateStr);
+      if (startStr && date < new Date(startStr)) return false;
+      if (endStr && date > new Date(endStr)) return false;
+      return true;
+    }
+
+    // Helper: Render Table
+    function renderTable() {
+      const table = document.getElementById('meetingTable');
+      const tbody = table.querySelector('tbody');
+      const noDataMsg = document.getElementById('noDataMsg');
+
+      const titleFilter = document.getElementById('titleFilter').value.trim().toLowerCase();
+      const participantFilter = document.getElementById('participantFilter').value.trim().toLowerCase();
+      const locationFilter = document.getElementById('locationFilter').value.trim().toLowerCase();
+      const dateFilter = document.getElementById('dateFilter').value;
+      const startDateFilter = document.getElementById('startDateFilter').value;
+      const endDateFilter = document.getElementById('endDateFilter').value;
+
+      let filtered = allMeetings.filter(meeting => {
+        // Title filter
+        if (titleFilter && !(meeting.meetingTitle || "").toLowerCase().includes(titleFilter)) return false;
+        // Location filter
+        if (locationFilter && !(meeting.meetingLocation || "").toLowerCase().includes(locationFilter)) return false;
+        // Participant filter
+        if (participantFilter && !(meeting.participants || []).some(p=>p.toLowerCase().includes(participantFilter))) return false;
+        // Specific date filter
+        if (dateFilter && meeting.meetingDate !== dateFilter) return false;
+        // Date range filter
+        if ((startDateFilter || endDateFilter) && !isDateInRange(meeting.meetingDate, startDateFilter, endDateFilter)) return false;
+        return true;
+      });
+
+      tbody.innerHTML = "";
+      if (filtered.length === 0) {
+        table.style.display = 'none';
+        noDataMsg.style.display = 'block';
+      } else {
+        table.style.display = 'table';
+        noDataMsg.style.display = 'none';
+        filtered.forEach(meeting => {
+          const dateCell = meeting.meetingDate || '';
+          const timeCell = meeting.meetingTime || '';
+          const titleCell = meeting.meetingTitle || '';
+          const locationCell = meeting.meetingLocation || '';
+          const participantsCell = (meeting.participants || []).join(', ');
+          // Discussions
+          let discussionsCell = "";
+          if (Array.isArray(meeting.discussions)) {
+            discussionsCell = meeting.discussions.map(area => 
+              `<div><span class="discussion-heading">${area.heading}</span><br>${area.topic}</div>`
+            ).join("<hr>");
+          }
+          // Next Steps
+          let nextStepsCell = "";
+          if (Array.isArray(meeting.nextSteps)) {
+            nextStepsCell = meeting.nextSteps.map(step => 
+              `<div class="next-step-block"><b>Step:</b> ${step.desc}<br><b>Responsible:</b> ${Array.isArray(step.responsible)? step.responsible.join(', ') : ''}</div>`
+            ).join("");
+          }
+          // Observations
+          let obsCell = "";
+          if (Array.isArray(meeting.linkedObservations) && meeting.linkedObservations.length > 0) {
+            obsCell = meeting.linkedObservations.map(obsId => {
+              const obs = observationMap[obsId];
+              if (obs) {
+                return `${obs.observedStaff || 'Unknown'} (${obs.observationDate || 'No date'})`;
+              } else {
+                return "Unknown";
+              }
+            }).join("<br>");
+          } else {
+            obsCell = '<span style="color:#999;">None</span>';
+          }
+          // Attachments
+          let attachCell = "";
+          if (Array.isArray(meeting.attachmentURLs) && meeting.attachmentURLs.length > 0) {
+            attachCell = meeting.attachmentURLs.map((url, i) => 
+              `<a class="attachment-link" href="${url}" target="_blank">File ${i+1}</a>`
+            ).join('');
+          } else {
+            attachCell = '<span style="color:#999;">None</span>';
+          }
+
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td>${dateCell}</td>
+            <td>${timeCell}</td>
+            <td>${titleCell}</td>
+            <td>${locationCell}</td>
+            <td>${participantsCell}</td>
+            <td>${discussionsCell}</td>
+            <td>${nextStepsCell}</td>
+            <td>${obsCell}</td>
+            <td>${attachCell}</td>
+          `;
+          tbody.appendChild(tr);
+        });
+      }
+    }
+
+    // Load Observations for mapping
+    async function loadObservationMap() {
+      const snap = await getDocs(collection(db, "observations"));
+      observationMap = {};
+      snap.forEach(doc => {
+        observationMap[doc.id] = doc.data();
+      });
+    }
+
+    // Load Meetings
+    async function loadMeetings() {
+      const table = document.getElementById('meetingTable');
+      const noDataMsg = document.getElementById('noDataMsg');
+      table.style.display = 'none';
+      noDataMsg.style.display = 'none';
+      allMeetings = [];
+      try {
+        await loadObservationMap();
+        const snap = await getDocs(collection(db, "meetings"));
+        snap.forEach(doc => {
+          allMeetings.push(doc.data());
+        });
+        renderTable();
+      } catch (err) {
+        noDataMsg.textContent = "Error loading meetings.";
+        noDataMsg.style.display = 'block';
+      }
+    }
+
+    // Filter Events
+    document.getElementById('titleFilter').addEventListener('input', renderTable);
+    document.getElementById('participantFilter').addEventListener('input', renderTable);
+    document.getElementById('locationFilter').addEventListener('input', renderTable);
+    document.getElementById('dateFilter').addEventListener('change', function() {
+      // Clear date range if specific date selected
+      if (this.value) {
+        document.getElementById('startDateFilter').value = '';
+        document.getElementById('endDateFilter').value = '';
+      }
+      renderTable();
+    });
+    document.getElementById('startDateFilter').addEventListener('change', function() {
+      // Clear specific date if range selected
+      if (this.value || document.getElementById('endDateFilter').value) {
+        document.getElementById('dateFilter').value = '';
+      }
+      renderTable();
+    });
+    document.getElementById('endDateFilter').addEventListener('change', function() {
+      // Clear specific date if range selected
+      if (this.value || document.getElementById('startDateFilter').value) {
+        document.getElementById('dateFilter').value = '';
+      }
+      renderTable();
+    });
+    document.getElementById('clearFiltersBtn').addEventListener('click', function() {
+      document.getElementById('titleFilter').value = '';
+      document.getElementById('participantFilter').value = '';
+      document.getElementById('locationFilter').value = '';
+      document.getElementById('dateFilter').value = '';
+      document.getElementById('startDateFilter').value = '';
+      document.getElementById('endDateFilter').value = '';
+      renderTable();
+    });
+
+    loadMeetings();
+  </script>
+</body>
+</html>

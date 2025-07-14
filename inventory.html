@@ -1,0 +1,1043 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>CoordiNation - Inventory & Reports</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+  <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+  <style>
+    body {
+      font-family: 'Inter', Arial, sans-serif;
+      background: linear-gradient(135deg, #f8fafc, #e3e7ee 60%);
+      margin: 0;
+      min-height: 100vh;
+      color: #222;
+    }
+    header {
+      padding: 32px 0 16px 0;
+      text-align: center;
+      font-size: 2.5em;
+      font-weight: 600;
+      letter-spacing: 1px;
+      color: #2a3b4c;
+      position: relative;
+    }
+    .navbar {
+      position: absolute;
+      top: 22px;
+      right: 22px;
+      z-index: 100;
+    }
+    .nav-dropdown {
+      position: relative;
+      display: inline-block;
+    }
+    .nav-btn {
+      background: none;
+      color: #4f46e5;
+      border: none;
+      font-size: 2em;
+      cursor: pointer;
+      padding: 0 6px;
+      border-radius: 6px;
+      transition: background 0.2s;
+    }
+    .nav-btn:hover, .nav-btn:focus {
+      background: #e3e7ee;
+      outline: none;
+    }
+    .nav-content {
+      display: none;
+      position: absolute;
+      right: 0;
+      background: #fff;
+      min-width: 170px;
+      box-shadow: 0 4px 16px rgba(52, 92, 172, 0.14);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .nav-dropdown:focus-within .nav-content,
+    .nav-dropdown:hover .nav-content {
+      display: block;
+    }
+    .nav-link {
+      color: #222;
+      padding: 11px 18px;
+      text-decoration: none;
+      display: block;
+      font-size: 1em;
+      border-bottom: 1px solid #e6eaf2;
+      background: #fff;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .nav-link:last-child { border-bottom: none; }
+    .nav-link:hover { background: #e3e7ee; }
+
+    .container {
+      background: #fff;
+      border-radius: 16px;
+      box-shadow: 0 2px 16px rgba(52,92,172,0.08);
+      max-width: 1000px;
+      margin: 32px auto 0 auto;
+      padding: 30px 20px 24px 20px;
+      border: 1px solid #e6eaf2;
+    }
+    .section-title {
+      font-size: 1.25em;
+      font-weight: 600;
+      margin-bottom: 10px;
+      color: #374151;
+      letter-spacing: 0.5px;
+    }
+    .inv-section {
+      border: 1px solid #e6eaf2;
+      padding: 20px 14px 16px 14px;
+      border-radius: 12px;
+      background: #f8fafc;
+      margin-bottom: 24px;
+    }
+    label {
+      font-weight: 600;
+      margin-bottom: 5px;
+      display: block;
+    }
+    input, select, textarea {
+      font-size: 1em;
+      padding: 7px 10px;
+      border-radius: 8px;
+      border: 1px solid #cbd5e1;
+      margin-bottom: 12px;
+      margin-right: 8px;
+      background: #f7f8fa;
+      width: 100%;
+      box-sizing: border-box;
+    }
+    input[type="date"] { min-width: 120px; max-width: 220px; }
+    input[type="file"] { padding: 3px; }
+    .btn {
+      background: linear-gradient(90deg, #4f46e5, #2563eb);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      padding: 8px 18px;
+      font-size: 1em;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s;
+      margin-right: 7px;
+      margin-bottom: 6px;
+      box-shadow: 0 2px 8px rgba(52, 92, 172, 0.07);
+      width: auto;
+    }
+    .btn:hover {
+      background: linear-gradient(90deg, #2563eb, #4f46e5);
+    }
+    .success-msg, .fail-msg {
+      font-weight: 600;
+      margin-top: 8px;
+    }
+    .success-msg { color: #15803d;}
+    .fail-msg { color: #b91c1c;}
+    .inv-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+    }
+    .inv-table th, .inv-table td {
+      border: 1px solid #e6eaf2;
+      padding: 7px 8px;
+      text-align: left;
+      font-size: 0.97em;
+    }
+    .inv-table th {
+      background: #e3e7ee;
+      font-weight: 600;
+    }
+    .completed-row { background: #e8f5e9;}
+    .not-completed-row { background: #fff;}
+    .order-link, .book-link {
+      color: #2563eb;
+      text-decoration: underline;
+      word-break: break-all;
+    }
+    .bulk-actions-bar {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 8px;
+      align-items: center;
+    }
+    .bulk-actions-bar .btn { font-size: 0.95em; }
+    .search-bar {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 8px;
+      align-items: center;
+    }
+    .search-bar input, .search-bar select {
+      font-size: 0.98em;
+      padding: 6px 8px;
+      border-radius: 7px;
+      border: 1px solid #cbd5e1;
+      background: #f7f8fa;
+    }
+    .modal-bg {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.22);
+      justify-content: center;
+      align-items: center;
+      z-index: 99;
+    }
+    .modal {
+      background: #fff;
+      border-radius: 14px;
+      padding: 32px 28px 22px 28px;
+      box-shadow: 0 8px 48px rgba(52, 92, 172, 0.18);
+      min-width: 320px;
+      text-align: center;
+      position: relative;
+    }
+    .modal .close-btn {
+      position: absolute;
+      top: 14px;
+      right: 17px;
+      font-size: 1.1em;
+      background: none;
+      border: none;
+      color: #999;
+      cursor: pointer;
+      padding: 3px;
+      border-radius: 4px;
+    }
+    .modal .close-btn:hover { background: #f2f4fa; }
+    .modal .modal-title { font-weight:600; font-size:1.2em; margin-bottom:14px;}
+    .modal .modal-body { margin-bottom:16px;}
+    .modal .modal-btn { margin-top:12px;}
+    .modal .modal-btn .btn { width: 120px;}
+    .report-section { margin-bottom:32px; }
+    .report-controls { margin-bottom:10px; display:flex; flex-wrap:wrap; gap:12px; align-items:center;}
+    .report-controls input, .report-controls select {
+      font-size: 0.98em;
+      padding: 6px 8px;
+      border-radius: 7px;
+      border: 1px solid #cbd5e1;
+      background: #f7f8fa;
+    }
+    .report-preview {
+      background: #f7f8fa;
+      border-radius: 14px;
+      padding: 18px 20px 18px 20px;
+      margin: 18px 0 10px 0;
+      box-shadow: 0 1px 4px rgba(52, 92, 172, 0.10);
+      min-height: 120px;
+      color: #263045;
+    }
+    @media (max-width: 1100px) {
+      .container { max-width: 99vw; }
+    }
+    @media (max-width: 700px) {
+      .container { padding: 8px 1px; }
+      header { font-size: 1.1em; }
+      .section-title { font-size: 1em; }
+      .inv-table th, .inv-table td { font-size: 0.92em;}
+      .navbar { position:static; display:block; margin:0 auto; }
+      .bulk-actions-bar, .search-bar, .report-controls { flex-direction:column; gap:3px;}
+    }
+  </style>
+  <!-- Google API JS Client -->
+  <script src="https://apis.google.com/js/api.js"></script>
+  <!-- FormSubmit polyfill -->
+  <script src="https://unpkg.com/formsubmit-polyfill"></script>
+</head>
+<body>
+  <header>
+    CoordiNation
+    <nav class="navbar">
+      <div class="nav-dropdown" tabindex="0">
+        <button class="nav-btn" aria-label="Open navigation" title="Navigate">
+          &#9776;
+        </button>
+        <div class="nav-content">
+          <a class="nav-link" href="index.html">Landing Page</a>
+          <a class="nav-link" href="staff-directory.html">Staff Directory</a>
+          <a class="nav-link" href="observational-form.html">Observational Form</a>
+          <a class="nav-link" href="meeting-notes.html">Meeting Notes</a>
+          <a class="nav-link" href="problem-solving.html">Problem Solving</a>
+          <a class="nav-link" href="report-generator.html">Report Generator</a>
+          <a class="nav-link" href="supply-order-form.html">Supply Order Form</a>
+          <a class="nav-link" href="inventory.html">Inventory</a>
+        </div>
+      </div>
+    </nav>
+  </header>
+  <div class="container">
+
+    <!-- SUPPLY INVENTORY SECTION -->
+    <div class="inv-section" id="supplySection">
+      <div class="section-title">Supply Inventory</div>
+      <form id="supplyForm" autocomplete="off">
+        <label for="supplyName">Item Name:</label>
+        <input id="supplyName" required>
+        <label for="supplyCategory">Category:</label>
+        <select id="supplyCategory">
+          <option value="">-- Select --</option>
+          <option>Manipulative</option>
+          <option>Art Supply</option>
+          <option>Cleaning</option>
+          <option>Stationery</option>
+          <option>Science</option>
+          <option>Technology</option>
+          <option>Other</option>
+        </select>
+        <input type="text" id="newSupplyCategory" placeholder="Add new category (optional)">
+        <label for="supplyQty">Quantity:</label>
+        <input id="supplyQty" type="number" min="0" required>
+        <label for="supplyUnit">Unit:</label>
+        <input id="supplyUnit" placeholder="e.g. box, piece, set">
+        <label for="supplyNotes">Notes:</label>
+        <textarea id="supplyNotes"></textarea>
+        <label for="supplyLink">Purchase Link (optional):</label>
+        <input id="supplyLink" type="url" placeholder="https://...">
+        <label for="supplyDate">Date Added:</label>
+        <input id="supplyDate" type="date">
+        <button class="btn" type="submit">Add Supply</button>
+        <span id="supplyMsg"></span>
+      </form>
+      <div class="bulk-actions-bar">
+        <button class="btn" type="button" id="deleteSelectedSuppliesBtn">Delete Selected</button>
+        <button class="btn" type="button" id="editSelectedSupplyBtn">Edit Selected</button>
+        <input type="file" id="supplyFileUpload" accept=".xlsx,.xls,.csv">
+        <label for="supplySearch">Search:</label>
+        <input type="text" id="supplySearch" placeholder="Name, category, notes...">
+        <select id="supplySort">
+          <option value="name">Sort: Name</option>
+          <option value="category">Sort: Category</option>
+          <option value="date">Sort: Date</option>
+          <option value="timesOrdered">Sort: Times Ordered</option>
+        </select>
+      </div>
+      <table class="inv-table" id="supplyTable">
+        <thead>
+          <tr>
+            <th><input type="checkbox" id="selectAllSupplies"></th>
+            <th>Name</th>
+            <th>Category</th>
+            <th>Qty</th>
+            <th>Unit</th>
+            <th>Notes</th>
+            <th>Purchase Link</th>
+            <th>Date Added</th>
+            <th>Times Ordered</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <!-- BOOK INVENTORY SECTION -->
+    <div class="inv-section" id="bookSection">
+      <div class="section-title">Book Inventory</div>
+      <form id="bookForm" autocomplete="off">
+        <label for="bookTitle">Book Title:</label>
+        <input id="bookTitle" required>
+        <label for="bookAuthor">Author:</label>
+        <input id="bookAuthor">
+        <label for="bookLanguage">Language:</label>
+        <select id="bookLanguage">
+          <option value="">-- Select --</option>
+          <option>Polish</option>
+          <option>English</option>
+          <option>Spanish</option>
+        </select>
+        <label for="bookUnit">Unit Name:</label>
+        <input id="bookUnit">
+        <label for="bookGrade">Grade:</label>
+        <select id="bookGrade">
+          <option value="">-- Select --</option>
+          <option>JK</option>
+          <option>SK</option>
+          <option>0</option>
+          <option>1</option>
+          <option>2</option>
+          <option>3</option>
+          <option>4</option>
+          <option>5</option>
+          <option>6</option>
+        </select>
+        <label for="bookQty">Quantity:</label>
+        <input id="bookQty" type="number" min="0" required>
+        <label for="bookLink">Purchase Link (optional):</label>
+        <input id="bookLink" type="url" placeholder="https://...">
+        <label for="bookDate">Date Added:</label>
+        <input id="bookDate" type="date">
+        <button class="btn" type="submit">Add Book</button>
+        <span id="bookMsg"></span>
+      </form>
+      <div class="bulk-actions-bar">
+        <button class="btn" type="button" id="deleteSelectedBooksBtn">Delete Selected</button>
+        <button class="btn" type="button" id="editSelectedBookBtn">Edit Selected</button>
+        <input type="file" id="bookFileUpload" accept=".xlsx,.xls,.csv">
+        <label for="bookSearch">Search:</label>
+        <input type="text" id="bookSearch" placeholder="Title, author, notes...">
+        <select id="bookSort">
+          <option value="title">Sort: Title</option>
+          <option value="language">Sort: Language</option>
+          <option value="grade">Sort: Grade</option>
+          <option value="date">Sort: Date</option>
+        </select>
+      </div>
+      <table class="inv-table" id="bookTable">
+        <thead>
+          <tr>
+            <th><input type="checkbox" id="selectAllBooks"></th>
+            <th>Title</th>
+            <th>Author</th>
+            <th>Language</th>
+            <th>Unit</th>
+            <th>Grade</th>
+            <th>Qty</th>
+            <th>Purchase Link</th>
+            <th>Date Added</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <!-- MOST COMMON ORDERS SECTION -->
+    <div class="inv-section" id="commonSection">
+      <div class="section-title">Most Common Supply Orders</div>
+      <div id="commonOrders"></div>
+    </div>
+
+    <!-- REPORT GENERATOR SECTION -->
+    <div class="inv-section report-section">
+      <div class="section-title">Inventory Report Generator</div>
+      <div class="report-controls">
+        <label for="reportType">Type:</label>
+        <select id="reportType">
+          <option value="supplies">Supplies</option>
+          <option value="books">Books</option>
+          <option value="both">Both</option>
+        </select>
+        <label for="reportCategory">Category:</label>
+        <select id="reportCategory">
+          <option value="">All</option>
+          <option>Manipulative</option>
+          <option>Art Supply</option>
+          <option>Cleaning</option>
+          <option>Stationery</option>
+          <option>Science</option>
+          <option>Technology</option>
+          <option>Other</option>
+        </select>
+        <label for="reportLanguage">Language:</label>
+        <select id="reportLanguage">
+          <option value="">All</option>
+          <option>Polish</option>
+          <option>English</option>
+          <option>Spanish</option>
+        </select>
+        <label for="reportGrade">Grade:</label>
+        <select id="reportGrade">
+          <option value="">All</option>
+          <option>JK</option>
+          <option>SK</option>
+          <option>0</option>
+          <option>1</option>
+          <option>2</option>
+          <option>3</option>
+          <option>4</option>
+          <option>5</option>
+          <option>6</option>
+        </select>
+        <label for="reportStartDate">Start Date:</label>
+        <input type="date" id="reportStartDate">
+        <label for="reportEndDate">End Date:</label>
+        <input type="date" id="reportEndDate">
+        <label for="reportSearch">Search:</label>
+        <input type="text" id="reportSearch" placeholder="Name, title, category...">
+        <label for="reportMostCommon"><input type="checkbox" id="reportMostCommon"> Only Most Common Orders</label>
+      </div>
+      <div>
+        <button class="btn" id="refreshReportBtn">Refresh Preview</button>
+        <button class="btn" id="exportSheetBtn">Export to Google Sheets</button>
+        <button class="btn" id="emailReportBtn">Email Report</button>
+        <input type="email" id="reportRecipient" placeholder="Recipient Email...">
+        <span id="reportMsg"></span>
+      </div>
+      <div class="report-preview" id="reportPreview">
+        <i>Set filters and click "Refresh Preview" to see the report here.</i>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL for confirmations/bulk edit -->
+  <div class="modal-bg" id="modalBg">
+    <div class="modal" id="modalBox">
+      <button class="close-btn" id="closeModalBtn">&times;</button>
+      <div class="modal-title" id="modalTitle"></div>
+      <div class="modal-body" id="modalBody"></div>
+      <div class="modal-btn" id="modalBtn"></div>
+    </div>
+  </div>
+
+  <!-- FIREBASE/JS LOGIC -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
+    import { getFirestore, collection, addDoc, getDocs, updateDoc, deleteDoc, doc } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
+    // Firebase config
+    const firebaseConfig = {
+      apiKey: "AIzaSyDXhHCNUsQoQ6SRYWYhPEPI811-2xTnlpE",
+      authDomain: "school-coordination.firebaseapp.com",
+      projectId: "school-coordination",
+      storageBucket: "school-coordination.appspot.com",
+      messagingSenderId: "177630449005",
+      appId: "1:177630449005:web:50f8bd0ff1244d53c35e64"
+    };
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    // --- Data holders ---
+    let supplies = [];
+    let books = [];
+    let orders = [];
+
+    // --- SUPPLY CRUD ---
+    async function loadSupplies() {
+      const snap = await getDocs(collection(db, "inventory_supplies"));
+      supplies = [];
+      snap.forEach(docSnap => {
+        let d = docSnap.data(); d._docId = docSnap.id;
+        supplies.push(d);
+      });
+    }
+    async function loadBooks() {
+      const snap = await getDocs(collection(db, "inventory_books"));
+      books = [];
+      snap.forEach(docSnap => {
+        let d = docSnap.data(); d._docId = docSnap.id;
+        books.push(d);
+      });
+    }
+    async function loadOrders() {
+      const snap = await getDocs(collection(db, "orders"));
+      orders = [];
+      snap.forEach(docSnap => {
+        let d = docSnap.data();
+        orders.push(d);
+      });
+    }
+
+    function getTimesOrdered(itemName) {
+      return orders.filter(o => (o.description||"").toLowerCase().trim() === itemName.toLowerCase().trim()).length;
+    }
+    function getMostCommonOrders(n=5) {
+      let countMap = {};
+      orders.forEach(o => {
+        let name = (o.description||"").trim();
+        if (!name) return;
+        countMap[name] = (countMap[name]||0)+1;
+      });
+      let arr = Object.entries(countMap).map(([name, count]) => ({name, count}));
+      arr.sort((a,b) => b.count-a.count);
+      return arr.slice(0,n);
+    }
+
+    // --- SUPPLY FORM ---
+    document.getElementById('supplyForm').onsubmit = async function(e) {
+      e.preventDefault();
+      let name = document.getElementById('supplyName').value.trim();
+      let cat = document.getElementById('supplyCategory').value;
+      let newCat = document.getElementById('newSupplyCategory').value.trim();
+      if (newCat) cat = newCat;
+      let qty = Number(document.getElementById('supplyQty').value);
+      let unit = document.getElementById('supplyUnit').value.trim();
+      let notes = document.getElementById('supplyNotes').value.trim();
+      let link = document.getElementById('supplyLink').value.trim();
+      let date = document.getElementById('supplyDate').value || (new Date()).toISOString().slice(0,10);
+
+      try {
+        await addDoc(collection(db, "inventory_supplies"), {
+          name, category: cat, qty, unit, notes, purchaseLink: link, date
+        });
+        document.getElementById('supplyMsg').textContent = "Saved!";
+        await loadSupplies();
+        renderSupplyTable();
+      } catch (err) {
+        document.getElementById('supplyMsg').textContent = "Could not save.";
+      }
+      setTimeout(()=>document.getElementById('supplyMsg').textContent="", 1500);
+      document.getElementById('supplyForm').reset();
+    };
+
+    // --- BOOK FORM ---
+    document.getElementById('bookForm').onsubmit = async function(e) {
+      e.preventDefault();
+      let title = document.getElementById('bookTitle').value.trim();
+      let author = document.getElementById('bookAuthor').value.trim();
+      let lang = document.getElementById('bookLanguage').value;
+      let unit = document.getElementById('bookUnit').value.trim();
+      let grade = document.getElementById('bookGrade').value;
+      let qty = Number(document.getElementById('bookQty').value);
+      let link = document.getElementById('bookLink').value.trim();
+      let date = document.getElementById('bookDate').value || (new Date()).toISOString().slice(0,10);
+
+      try {
+        await addDoc(collection(db, "inventory_books"), {
+          title, author, language: lang, unit, grade, qty, purchaseLink: link, date
+        });
+        document.getElementById('bookMsg').textContent = "Saved!";
+        await loadBooks();
+        renderBookTable();
+      } catch (err) {
+        document.getElementById('bookMsg').textContent = "Could not save.";
+      }
+      setTimeout(()=>document.getElementById('bookMsg').textContent="", 1500);
+      document.getElementById('bookForm').reset();
+    };
+
+    // --- TABLE RENDERERS ---
+    function renderSupplyTable() {
+      let search = document.getElementById('supplySearch').value.trim().toLowerCase();
+      let sort = document.getElementById('supplySort').value;
+      let arr = supplies.slice();
+      if (search) {
+        arr = arr.filter(s =>
+          (s.name||"").toLowerCase().includes(search) ||
+          (s.category||"").toLowerCase().includes(search) ||
+          (s.notes||"").toLowerCase().includes(search)
+        );
+      }
+      if (sort==="name") arr.sort((a,b)=>a.name.localeCompare(b.name));
+      if (sort==="category") arr.sort((a,b)=>a.category.localeCompare(b.category));
+      if (sort==="date") arr.sort((a,b)=>b.date.localeCompare(a.date));
+      if (sort==="timesOrdered") arr.sort((a,b)=>getTimesOrdered(b.name)-getTimesOrdered(a.name));
+      const tbody = document.getElementById('supplyTable').querySelector('tbody');
+      tbody.innerHTML = "";
+      arr.forEach(s=>{
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td><input type="checkbox" class="supplyRowBox" data-id="${s._docId}"></td>
+          <td>${s.name||""}</td>
+          <td>${s.category||""}</td>
+          <td>${s.qty||""}</td>
+          <td>${s.unit||""}</td>
+          <td>${s.notes||""}</td>
+          <td>${s.purchaseLink?`<a class="order-link" href="${s.purchaseLink}" target="_blank">link</a>`:""}</td>
+          <td>${s.date||""}</td>
+          <td>${getTimesOrdered(s.name)}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+    function renderBookTable() {
+      let search = document.getElementById('bookSearch').value.trim().toLowerCase();
+      let sort = document.getElementById('bookSort').value;
+      let arr = books.slice();
+      if (search) {
+        arr = arr.filter(b =>
+          (b.title||"").toLowerCase().includes(search) ||
+          (b.author||"").toLowerCase().includes(search)
+        );
+      }
+      if (sort==="title") arr.sort((a,b)=>a.title.localeCompare(b.title));
+      if (sort==="language") arr.sort((a,b)=>a.language.localeCompare(b.language));
+      if (sort==="grade") arr.sort((a,b)=>a.grade.localeCompare(b.grade));
+      if (sort==="date") arr.sort((a,b)=>b.date.localeCompare(a.date));
+      const tbody = document.getElementById('bookTable').querySelector('tbody');
+      tbody.innerHTML = "";
+      arr.forEach(b=>{
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td><input type="checkbox" class="bookRowBox" data-id="${b._docId}"></td>
+          <td>${b.title||""}</td>
+          <td>${b.author||""}</td>
+          <td>${b.language||""}</td>
+          <td>${b.unit||""}</td>
+          <td>${b.grade||""}</td>
+          <td>${b.qty||""}</td>
+          <td>${b.purchaseLink?`<a class="book-link" href="${b.purchaseLink}" target="_blank">link</a>`:""}</td>
+          <td>${b.date||""}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+    // --- COMMON ORDERS RENDER ---
+    function renderCommonOrders() {
+      let arr = getMostCommonOrders(8);
+      let html = "<ol>";
+      arr.forEach(o=>{
+        html += `<li>${o.name} - <b>${o.count} times</b></li>`;
+      });
+      html += "</ol>";
+      document.getElementById('commonOrders').innerHTML = html;
+    }
+
+    // --- BULK SELECT ---
+    document.getElementById('selectAllSupplies').onchange = function() {
+      document.querySelectorAll('.supplyRowBox').forEach(box=>box.checked=this.checked);
+    };
+    document.getElementById('selectAllBooks').onchange = function() {
+      document.querySelectorAll('.bookRowBox').forEach(box=>box.checked=this.checked);
+    };
+
+    // --- BULK DELETE ---
+    function showModal(title, body, onConfirm) {
+      document.getElementById('modalTitle').textContent = title;
+      document.getElementById('modalBody').innerHTML = body;
+      document.getElementById('modalBg').style.display = 'flex';
+      document.getElementById('modalBtn').innerHTML =
+        `<button class="btn" id="modalConfirmBtn">Confirm</button>
+         <button class="btn" id="modalCancelBtn">Cancel</button>`;
+      document.getElementById('modalConfirmBtn').onclick = ()=>{
+        document.getElementById('modalBg').style.display = 'none';
+        onConfirm();
+      }
+      document.getElementById('modalCancelBtn').onclick = ()=>{
+        document.getElementById('modalBg').style.display = 'none';
+      }
+      document.getElementById('closeModalBtn').onclick = ()=>{
+        document.getElementById('modalBg').style.display = 'none';
+      }
+    }
+    document.getElementById('deleteSelectedSuppliesBtn').onclick = function() {
+      let ids = Array.from(document.querySelectorAll('.supplyRowBox:checked')).map(box=>box.getAttribute('data-id'));
+      if (!ids.length) return;
+      showModal("Delete Supplies",
+        `Are you sure you want to delete ${ids.length} supply items? This cannot be undone.`,
+        async ()=>{
+          for (let id of ids) await deleteDoc(doc(db,"inventory_supplies",id));
+          await loadSupplies(); renderSupplyTable();
+        });
+    };
+    document.getElementById('deleteSelectedBooksBtn').onclick = function() {
+      let ids = Array.from(document.querySelectorAll('.bookRowBox:checked')).map(box=>box.getAttribute('data-id'));
+      if (!ids.length) return;
+      showModal("Delete Books",
+        `Are you sure you want to delete ${ids.length} book items? This cannot be undone.`,
+        async ()=>{
+          for (let id of ids) await deleteDoc(doc(db,"inventory_books",id));
+          await loadBooks(); renderBookTable();
+        });
+    };
+
+    // --- BULK EDIT (edits only first selected) ---
+    document.getElementById('editSelectedSupplyBtn').onclick = function() {
+      let ids = Array.from(document.querySelectorAll('.supplyRowBox:checked')).map(box=>box.getAttribute('data-id'));
+      if (!ids.length) return;
+      let s = supplies.find(s=>s._docId===ids[0]);
+      let formHtml = `
+        <label>Name:<input id="editSupplyName" value="${s.name||""}"></label>
+        <label>Category:<input id="editSupplyCategory" value="${s.category||""}"></label>
+        <label>Qty:<input id="editSupplyQty" type="number" value="${s.qty||""}"></label>
+        <label>Unit:<input id="editSupplyUnit" value="${s.unit||""}"></label>
+        <label>Notes:<textarea id="editSupplyNotes">${s.notes||""}</textarea></label>
+        <label>Link:<input id="editSupplyLink" value="${s.purchaseLink||""}"></label>
+        <label>Date:<input id="editSupplyDate" type="date" value="${s.date||""}"></label>
+      `;
+      showModal("Edit Supply", formHtml, async ()=>{
+        await updateDoc(doc(db,"inventory_supplies",ids[0]),{
+          name:document.getElementById('editSupplyName').value.trim(),
+          category:document.getElementById('editSupplyCategory').value.trim(),
+          qty:Number(document.getElementById('editSupplyQty').value),
+          unit:document.getElementById('editSupplyUnit').value.trim(),
+          notes:document.getElementById('editSupplyNotes').value.trim(),
+          purchaseLink:document.getElementById('editSupplyLink').value.trim(),
+          date:document.getElementById('editSupplyDate').value.trim()
+        });
+        await loadSupplies(); renderSupplyTable();
+      });
+    };
+    document.getElementById('editSelectedBookBtn').onclick = function() {
+      let ids = Array.from(document.querySelectorAll('.bookRowBox:checked')).map(box=>box.getAttribute('data-id'));
+      if (!ids.length) return;
+      let b = books.find(b=>b._docId===ids[0]);
+      let formHtml = `
+        <label>Title:<input id="editBookTitle" value="${b.title||""}"></label>
+        <label>Author:<input id="editBookAuthor" value="${b.author||""}"></label>
+        <label>Language:<input id="editBookLanguage" value="${b.language||""}"></label>
+        <label>Unit:<input id="editBookUnit" value="${b.unit||""}"></label>
+        <label>Grade:<input id="editBookGrade" value="${b.grade||""}"></label>
+        <label>Qty:<input id="editBookQty" type="number" value="${b.qty||""}"></label>
+        <label>Link:<input id="editBookLink" value="${b.purchaseLink||""}"></label>
+        <label>Date:<input id="editBookDate" type="date" value="${b.date||""}"></label>
+      `;
+      showModal("Edit Book", formHtml, async ()=>{
+        await updateDoc(doc(db,"inventory_books",ids[0]),{
+          title:document.getElementById('editBookTitle').value.trim(),
+          author:document.getElementById('editBookAuthor').value.trim(),
+          language:document.getElementById('editBookLanguage').value.trim(),
+          unit:document.getElementById('editBookUnit').value.trim(),
+          grade:document.getElementById('editBookGrade').value.trim(),
+          qty:Number(document.getElementById('editBookQty').value),
+          purchaseLink:document.getElementById('editBookLink').value.trim(),
+          date:document.getElementById('editBookDate').value.trim()
+        });
+        await loadBooks(); renderBookTable();
+      });
+    };
+
+    // --- SEARCH/SORT ---
+    document.getElementById('supplySearch').oninput = renderSupplyTable;
+    document.getElementById('supplySort').onchange = renderSupplyTable;
+    document.getElementById('bookSearch').oninput = renderBookTable;
+    document.getElementById('bookSort').onchange = renderBookTable;
+
+    // --- FILE UPLOADS ---
+    document.getElementById('supplyFileUpload').onchange = function(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function(ev) {
+        const data = new Uint8Array(ev.target.result);
+        const wb = XLSX.read(data, {type:'array'});
+        const sheet = wb.Sheets[wb.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json(sheet);
+        rows.forEach(async row=>{
+          await addDoc(collection(db,"inventory_supplies"),{
+            name:row["Item Name"]||row["Name"]||"",
+            category:row["Category"]||"",
+            qty:Number(row["Quantity"]||row["Qty"]||0),
+            unit:row["Unit"]||"",
+            notes:row["Notes"]||"",
+            purchaseLink:row["Purchase Link"]||row["Link"]||"",
+            date:row["Date Added"]||row["Date"]||(new Date()).toISOString().slice(0,10)
+          });
+        });
+        setTimeout(async()=>{await loadSupplies();renderSupplyTable();},1500);
+      };
+      reader.readAsArrayBuffer(file);
+    };
+    document.getElementById('bookFileUpload').onchange = function(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function(ev) {
+        const data = new Uint8Array(ev.target.result);
+        const wb = XLSX.read(data, {type:'array'});
+        const sheet = wb.Sheets[wb.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json(sheet);
+        rows.forEach(async row=>{
+          await addDoc(collection(db,"inventory_books"),{
+            title:row["Book Title"]||row["Title"]||"",
+            author:row["Author"]||"",
+            language:row["Language"]||"",
+            unit:row["Unit Name"]||row["Unit"]||"",
+            grade:row["Grade"]||"",
+            qty:Number(row["Quantity"]||row["Qty"]||0),
+            purchaseLink:row["Purchase Link"]||row["Link"]||"",
+            date:row["Date Added"]||row["Date"]||(new Date()).toISOString().slice(0,10)
+          });
+        });
+        setTimeout(async()=>{await loadBooks();renderBookTable();},1500);
+      };
+      reader.readAsArrayBuffer(file);
+    };
+
+    // --- REPORT GENERATOR ---
+    function buildReportHTML(type, opts) {
+      let html = `<div style="font-size:1.25em;font-weight:600;text-align:center;margin-bottom:10px;">Inventory Report</div>`;
+      let start = opts.startDate, end = opts.endDate, search = (opts.search||"").toLowerCase(), mostCommon = opts.mostCommon;
+      if ((type==="supplies"||type==="both")) {
+        let arr = supplies.slice();
+        if (opts.category) arr = arr.filter(s=>s.category===opts.category);
+        if (start) arr = arr.filter(s=>s.date>=start);
+        if (end) arr = arr.filter(s=>s.date<=end);
+        if (search) arr = arr.filter(s=> (s.name||"").toLowerCase().includes(search) || (s.category||"").toLowerCase().includes(search) || (s.notes||"").toLowerCase().includes(search));
+        if (mostCommon) {
+          let commonNames = getMostCommonOrders(8).map(o=>o.name);
+          arr = arr.filter(s=>commonNames.includes(s.name));
+        }
+        html += `<div style="font-size:1.09em;font-weight:600;margin:9px 0 5px 0;">Supply Inventory</div>`;
+        if (arr.length===0) html += `<div style="color:#888;">No supplies found.</div>`;
+        arr.forEach(s=>{
+          html += `<div style="margin-bottom:3px;">
+            <b>Name:</b> ${s.name||""} | <b>Category:</b> ${s.category||""} | <b>Qty:</b> ${s.qty||""} | <b>Unit:</b> ${s.unit||""} | <b>Date:</b> ${s.date||""} | <b>Times Ordered:</b> ${getTimesOrdered(s.name)||0} ${s.purchaseLink?`| <a href="${s.purchaseLink}" target="_blank">Purchase Link</a>`:""}
+            </div>`;
+        });
+      }
+      if ((type==="books"||type==="both")) {
+        let arr = books.slice();
+        if (opts.language) arr = arr.filter(b=>b.language===opts.language);
+        if (opts.grade) arr = arr.filter(b=>b.grade===opts.grade);
+        if (start) arr = arr.filter(b=>b.date>=start);
+        if (end) arr = arr.filter(b=>b.date<=end);
+        if (search) arr = arr.filter(b=> (b.title||"").toLowerCase().includes(search) || (b.author||"").toLowerCase().includes(search));
+        html += `<div style="font-size:1.09em;font-weight:600;margin:9px 0 5px 0;">Book Inventory</div>`;
+        if (arr.length===0) html += `<div style="color:#888;">No books found.</div>`;
+        arr.forEach(b=>{
+          html += `<div style="margin-bottom:3px;">
+            <b>Title:</b> ${b.title||""} | <b>Author:</b> ${b.author||""} | <b>Language:</b> ${b.language||""} | <b>Unit:</b> ${b.unit||""} | <b>Grade:</b> ${b.grade||""} | <b>Qty:</b> ${b.qty||""} | <b>Date:</b> ${b.date||""} ${b.purchaseLink?`| <a href="${b.purchaseLink}" target="_blank">Purchase Link</a>`:""}
+            </div>`;
+        });
+      }
+      return html;
+    }
+    document.getElementById('refreshReportBtn').onclick = function() {
+      let type = document.getElementById('reportType').value;
+      let opts = {
+        category: document.getElementById('reportCategory').value,
+        language: document.getElementById('reportLanguage').value,
+        grade: document.getElementById('reportGrade').value,
+        startDate: document.getElementById('reportStartDate').value,
+        endDate: document.getElementById('reportEndDate').value,
+        search: document.getElementById('reportSearch').value,
+        mostCommon: document.getElementById('reportMostCommon').checked
+      };
+      document.getElementById('reportPreview').innerHTML = buildReportHTML(type, opts);
+    };
+
+    // --- GOOGLE SHEETS EXPORT ---
+    const CLIENT_ID = "567233493732-qrlbl43nhrcanb5pjdpuvju76o022mmj.apps.googleusercontent.com";
+    const SCOPES = "https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive.file";
+    let gapiInited = false;
+    function loadGapi() {
+      return new Promise(resolve => {
+        if (gapiInited) return resolve();
+        gapi.load('client:auth2', () => {
+          gapi.client.init({clientId: CLIENT_ID, scope: SCOPES})
+            .then(()=>{gapiInited=true; resolve();});
+        });
+      });
+    }
+    async function getGapiAuth() {
+      await loadGapi();
+      if (!gapi.auth2.getAuthInstance().isSignedIn.get()) {
+        await gapi.auth2.getAuthInstance().signIn();
+      }
+      return gapi.auth2.getAuthInstance().currentUser.get().getAuthResponse().access_token;
+    }
+    document.getElementById('exportSheetBtn').onclick = async function() {
+      document.getElementById('reportMsg').textContent = "";
+      let type = document.getElementById('reportType').value;
+      let opts = {
+        category: document.getElementById('reportCategory').value,
+        language: document.getElementById('reportLanguage').value,
+        grade: document.getElementById('reportGrade').value,
+        startDate: document.getElementById('reportStartDate').value,
+        endDate: document.getElementById('reportEndDate').value,
+        search: document.getElementById('reportSearch').value,
+        mostCommon: document.getElementById('reportMostCommon').checked
+      };
+      try {
+        await loadGapi();
+        await getGapiAuth();
+
+        let spreadsheet = await gapi.client.sheets.spreadsheets.create({
+          properties: {title: `Inventory Export ${new Date().toLocaleString()}`},
+          sheets: (type==="both")?
+            [{properties:{title:"Supplies"}},{properties:{title:"Books"}}]:
+            [{properties:{title:type==="supplies"?"Supplies":"Books"}}]
+        });
+        let sheetId = spreadsheet.result.spreadsheetId;
+
+        if (type==="supplies"||type==="both") {
+          let arr = supplies.slice();
+          if (opts.category) arr = arr.filter(s=>s.category===opts.category);
+          if (opts.startDate) arr = arr.filter(s=>s.date>=opts.startDate);
+          if (opts.endDate) arr = arr.filter(s=>s.date<=opts.endDate);
+          if (opts.search) arr = arr.filter(s=> (s.name||"").toLowerCase().includes(opts.search) || (s.category||"").toLowerCase().includes(opts.search) || (s.notes||"").toLowerCase().includes(opts.search));
+          if (opts.mostCommon) {
+            let commonNames = getMostCommonOrders(8).map(o=>o.name);
+            arr = arr.filter(s=>commonNames.includes(s.name));
+          }
+          let headers = ["Name","Category","Qty","Unit","Notes","Purchase Link","Date Added","Times Ordered"];
+          let rows = [headers];
+          arr.forEach(s=>{
+            rows.push([s.name||"",s.category||"",s.qty||"",s.unit||"",s.notes||"",s.purchaseLink||"",s.date||"",getTimesOrdered(s.name)||0]);
+          });
+          await gapi.client.sheets.spreadsheets.values.update({
+            spreadsheetId: sheetId,
+            range: `Supplies!A1`,
+            valueInputOption:"RAW",
+            values:rows
+          });
+        }
+        if (type==="books"||type==="both") {
+          let arr = books.slice();
+          if (opts.language) arr = arr.filter(b=>b.language===opts.language);
+          if (opts.grade) arr = arr.filter(b=>b.grade===opts.grade);
+          if (opts.startDate) arr = arr.filter(b=>b.date>=opts.startDate);
+          if (opts.endDate) arr = arr.filter(b=>b.date<=opts.endDate);
+          if (opts.search) arr = arr.filter(b=> (b.title||"").toLowerCase().includes(opts.search) || (b.author||"").toLowerCase().includes(opts.search));
+          let headers = ["Title","Author","Language","Unit","Grade","Qty","Purchase Link","Date Added"];
+          let rows = [headers];
+          arr.forEach(b=>{
+            rows.push([b.title||"",b.author||"",b.language||"",b.unit||"",b.grade||"",b.qty||"",b.purchaseLink||"",b.date||""]);
+          });
+          await gapi.client.sheets.spreadsheets.values.update({
+            spreadsheetId: sheetId,
+            range: `Books!A1`,
+            valueInputOption:"RAW",
+            values:rows
+          });
+        }
+        document.getElementById('reportMsg').innerHTML = `<span class="success-msg">Exported! <a href="https://docs.google.com/spreadsheets/d/${sheetId}" target="_blank">Open Sheet</a></span>`;
+      } catch (e) {
+        document.getElementById('reportMsg').innerHTML = `<span class="fail-msg">Export failed. (${e.message||e})</span>`;
+      }
+    };
+
+    // --- EMAIL REPORT ---
+    document.getElementById('emailReportBtn').onclick = function() {
+      let recipient = document.getElementById('reportRecipient').value.trim();
+      if (!recipient) {
+        document.getElementById('reportMsg').textContent = "Enter recipient email.";
+        return;
+      }
+      let subject = "Inventory Report";
+      let html = document.getElementById('reportPreview').innerHTML;
+      // Use FormSubmit (send to recipient)
+      const form = document.createElement('form');
+      form.action = `https://formsubmit.co/${recipient}`;
+      form.method = "POST";
+      form.style.display = "none";
+      let inp = document.createElement('input');
+      inp.type = "hidden";
+      inp.name = "_subject";
+      inp.value = subject;
+      form.appendChild(inp);
+      let inp2 = document.createElement('input');
+      inp2.type = "hidden";
+      inp2.name = "_template";
+      inp2.value = "table";
+      form.appendChild(inp2);
+      let inp3 = document.createElement('input');
+      inp3.type = "hidden";
+      inp3.name = "Report";
+      inp3.value = html.replace(/<[^>]+>/g,"\n").replace(/&nbsp;/g," ");
+      form.appendChild(inp3);
+      let inp4 = document.createElement('input');
+      inp4.type = "hidden";
+      inp4.name = "_captcha";
+      inp4.value = "false";
+      form.appendChild(inp4);
+      let inp5 = document.createElement('input');
+      inp5.type = "hidden";
+      inp5.name = "_redirect";
+      inp5.value = window.location.href;
+      form.appendChild(inp5);
+      document.body.appendChild(form);
+      form.submit();
+      document.getElementById('reportMsg').innerHTML = `<span class="success-msg">Report sent to ${recipient}.</span>`;
+      setTimeout(()=>document.getElementById('reportMsg').textContent="",3000);
+    };
+
+    // --- INITIAL LOAD ---
+    async function initialLoad() {
+      await loadOrders();
+      await loadSupplies();
+      await loadBooks();
+      renderSupplyTable();
+      renderBookTable();
+      renderCommonOrders();
+    }
+    initialLoad();
+
+  </script>
+</body>
+</html>

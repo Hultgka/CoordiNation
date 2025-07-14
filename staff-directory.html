@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Staff Directory - School Coordination Web App</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Inter', Arial, sans-serif; background: #f8fafc; margin:0; color:#222;}
+    header { padding: 28px 0 12px 0; text-align: center; font-size: 2em; font-weight: 600; color: #2a3b4c; position:relative;}
+    .navbar {
+      position: absolute;
+      top: 22px;
+      right: 22px;
+      z-index: 100;
+    }
+    .nav-dropdown {
+      position: relative;
+      display: inline-block;
+    }
+    .nav-btn {
+      background: none;
+      color: #4f46e5;
+      border: none;
+      font-size: 2em;
+      cursor: pointer;
+      padding: 0 6px;
+      border-radius: 6px;
+      transition: background 0.2s;
+    }
+    .nav-btn:hover, .nav-btn:focus {
+      background: #e3e7ee;
+      outline: none;
+    }
+    .nav-content {
+      display: none;
+      position: absolute;
+      right: 0;
+      background: #fff;
+      min-width: 170px;
+      box-shadow: 0 4px 16px rgba(52, 92, 172, 0.14);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .nav-dropdown:focus-within .nav-content,
+    .nav-dropdown:hover .nav-content {
+      display: block;
+    }
+    .nav-link {
+      color: #222;
+      padding: 11px 18px;
+      text-decoration: none;
+      display: block;
+      font-size: 1em;
+      border-bottom: 1px solid #e6eaf2;
+      background: #fff;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .nav-link:last-child { border-bottom: none; }
+    .nav-link:hover { background: #e3e7ee; }
+
+    .admin-info { text-align:center; margin-bottom:32px; font-size:1.1em; color:#444;}
+    .filter-bar { display:flex; justify-content:center; gap:24px; margin-bottom:22px;}
+    .filter-bar input, .filter-bar select {
+      font-size:1em; padding:7px 11px; border:1px solid #cbd5e1;
+      border-radius:6px; background:#f7f8fa; min-width:120px;
+    }
+    .staff-table { margin: 0 auto 38px auto; width: 95vw; max-width: 620px; border-collapse:collapse;}
+    .staff-table th, .staff-table td { border: 1px solid #e6eaf2; padding: 10px 14px; text-align:left;}
+    .staff-table th { background:#e3e7ee; font-weight:600; cursor:pointer;}
+    .staff-table th.sort-asc:after { content:" ▲"; font-size:0.9em;}
+    .staff-table th.sort-desc:after { content:" ▼"; font-size:0.9em;}
+    .add-btn, .edit-btn, .delete-btn { padding:6px 18px; margin:0 3px; border:none; border-radius:6px; cursor:pointer; font-weight:600;}
+    .add-btn { background:#4f46e5; color:#fff;}
+    .add-btn:hover { background:#2563eb;}
+    .edit-btn { background:#fbbf24; color:#222;}
+    .edit-btn:hover { background:#f59e10;}
+    .delete-btn { background:#e11d48; color:#fff;}
+    .delete-btn:hover { background:#be123c;}
+    .modal-bg { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.24); justify-content:center; align-items:center; z-index:99;}
+    .modal { background:#fff; border-radius:12px; padding:32px 28px 22px 28px; box-shadow:0 8px 48px rgba(52,92,172,0.18); min-width:320px; text-align:center; position:relative;}
+    .modal input { font-size:1em; padding:9px 12px; margin:8px 0; width:85%; border:1px solid #cbd5e1; border-radius:6px; background:#f7f8fa;}
+    .modal input:focus { border:1.5px solid #4f46e5; outline:none;}
+    .modal label { font-size:0.97em; color:#505a6b; display:block; margin-top:10px; text-align:left; margin-left:17px;}
+    .modal .close-btn { position:absolute; top:14px; right:17px; font-size:1.1em; background:none; border:none; color:#999; cursor:pointer; padding:3px; border-radius:4px;}
+    .modal .close-btn:hover { background:#f2f4fa;}
+    .modal .modal-submit { margin-top:18px; padding:10px 34px; font-size:1em; font-weight:600; color:#fff; background:linear-gradient(90deg,#4f46e5,#2563eb); border:none; border-radius:8px; cursor:pointer;}
+    .modal .modal-submit:hover { background:linear-gradient(90deg,#2563eb,#4f46e5);}
+    .modal .error { color:#e11d48; font-size:0.98em; margin-top:10px; margin-bottom:-4px; min-height:20px;}
+    @media (max-width:600px) {
+      .navbar { right: 12px; top: 12px;}
+      header { font-size: 1.4em;}
+      .staff-table { font-size:0.97em;}
+      .filter-bar { flex-direction:column; gap:8px;}
+    }
+  </style>
+</head>
+<body>
+  <header>
+    Staff Directory
+    <nav class="navbar">
+      <div class="nav-dropdown" tabindex="0">
+        <button class="nav-btn" aria-label="Open navigation" title="Navigate">
+          &#9776;
+        </button>
+        <div class="nav-content">
+          <a class="nav-link" href="index.html">Landing Page</a>
+          <a class="nav-link" href="staff-directory.html">Staff Directory</a>
+          <a class="nav-link" href="observational-form.html">Observational Form</a>
+          <a class="nav-link" href="meeting-notes.html">Meeting Notes</a>
+          <a class="nav-link" href="problem-solving.html">Problem Solving</a>
+          <a class="nav-link" href="report-generator.html">Report Generator</a>
+          <a class="nav-link" href="supply-order-form.html">Supply Order Form</a>
+          <a class="nav-link" href="inventory.html">Inventory</a>
+        </div>
+      </div>
+    </nav>
+  </header>
+
+  <div class="admin-info" id="adminInfo"></div>
+
+  <!-- Filter Bar -->
+  <div class="filter-bar">
+    <input type="text" id="filterName" placeholder="Filter by Name">
+    <input type="text" id="filterRole" placeholder="Filter by Role">
+    <input type="text" id="filterEmail" placeholder="Filter by Email">
+  </div>
+
+  <div>
+    <button class="add-btn" id="addStaffBtn">Add Staff Member</button>
+  </div>
+  <table class="staff-table" id="staffTable">
+    <thead>
+      <tr>
+        <th id="thName">Name</th>
+        <th id="thRole">Role</th>
+        <th id="thEmail">Email</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody id="staffTableBody">
+      <!-- Staff rows go here -->
+    </tbody>
+  </table>
+
+  <!-- Staff Add/Edit Modal -->
+  <div class="modal-bg" id="staffModalBg">
+    <div class="modal" id="staffModal">
+      <button class="close-btn" id="closeStaffModalBtn">&times;</button>
+      <h2 id="staffModalTitle">Add Staff Member</h2>
+      <form id="staffForm">
+        <label for="staffName">Name</label>
+        <input id="staffName" type="text" required>
+        <label for="staffRole">Role</label>
+        <input id="staffRole" type="text" required>
+        <label for="staffEmail">Email</label>
+        <input id="staffEmail" type="email" required>
+        <div class="error" id="staffFormError"></div>
+        <button type="submit" class="modal-submit">Save</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Firebase JS SDK -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
+    import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
+    import { getFirestore, doc, getDoc, collection, getDocs, setDoc, addDoc, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
+
+    // Your Firebase config
+    const firebaseConfig = {
+      apiKey: "AIzaSyDXhHCNUsQoQ6SRYWYhPEPI811-2xTnlpE",
+      authDomain: "school-coordination.firebaseapp.com",
+      projectId: "school-coordination",
+      storageBucket: "school-coordination.firebasestorage.app",
+      messagingSenderId: "177630449005",
+      appId: "1:177630449005:web:50f8bd0ff1244d53c35e64"
+    };
+
+    // Initialize Firebase and Firestore
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+
+    let currentAdmin = null;
+    let allStaff = [];
+    let sortState = { field: "name", dir: "asc" };
+
+    // Only allow admins
+    onAuthStateChanged(auth, async (user) => {
+      if (!user) {
+        window.location.href = "index.html"; // redirect to landing/login
+        return;
+      }
+      // Check admin status
+      const adminDocSnap = await getDoc(doc(db, "admins", user.uid));
+      if (!adminDocSnap.exists()) {
+        alert("Access denied: Not an admin");
+        window.location.href = "index.html";
+        return;
+      }
+      currentAdmin = adminDocSnap.data();
+      renderAdminInfo(user.email, currentAdmin.displayName);
+      await loadStaff();
+      renderStaffTable();
+    });
+
+    function renderAdminInfo(email, displayName) {
+      const infoEl = document.getElementById("adminInfo");
+      infoEl.textContent = `Logged in as: ${displayName || email} (${email})`;
+    }
+
+    // Staff CRUD
+    async function loadStaff() {
+      const staffSnap = await getDocs(collection(db, "staff"));
+      allStaff = [];
+      staffSnap.forEach(docSnap => {
+        allStaff.push({ ...docSnap.data(), id: docSnap.id });
+      });
+    }
+
+    // Filtering & Sorting
+    function getFilteredSortedStaff() {
+      let filtered = [...allStaff];
+      const nameFilter = document.getElementById('filterName').value.trim().toLowerCase();
+      const roleFilter = document.getElementById('filterRole').value.trim().toLowerCase();
+      const emailFilter = document.getElementById('filterEmail').value.trim().toLowerCase();
+
+      if (nameFilter) filtered = filtered.filter(s => s.name.toLowerCase().includes(nameFilter));
+      if (roleFilter) filtered = filtered.filter(s => s.role.toLowerCase().includes(roleFilter));
+      if (emailFilter) filtered = filtered.filter(s => s.email.toLowerCase().includes(emailFilter));
+
+      filtered.sort((a, b) => {
+        let fa = a[sortState.field] ? a[sortState.field].toLowerCase() : "";
+        let fb = b[sortState.field] ? b[sortState.field].toLowerCase() : "";
+        if (fa < fb) return sortState.dir === "asc" ? -1 : 1;
+        if (fa > fb) return sortState.dir === "asc" ? 1 : -1;
+        return 0;
+      });
+      return filtered;
+    }
+
+    function renderStaffTable() {
+      const tbody = document.getElementById("staffTableBody");
+      tbody.innerHTML = "";
+      const staffList = getFilteredSortedStaff();
+      staffList.forEach(data => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${data.name}</td>
+          <td>${data.role}</td>
+          <td>${data.email}</td>
+          <td>
+            <button class="edit-btn" data-id="${data.id}">Edit</button>
+            <button class="delete-btn" data-id="${data.id}">Delete</button>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+      // Update sort icons
+      ["Name","Role","Email"].forEach(field => {
+        let th = document.getElementById("th"+field);
+        th.classList.remove("sort-asc","sort-desc");
+        if (sortState.field === field.toLowerCase()) {
+          th.classList.add(sortState.dir === "asc" ? "sort-asc" : "sort-desc");
+        }
+      });
+    }
+
+    // Filter events
+    ["filterName","filterRole","filterEmail"].forEach(id => {
+      document.getElementById(id).addEventListener("input", renderStaffTable);
+    });
+
+    // Sorting events
+    document.getElementById("thName").onclick = () => toggleSort("name");
+    document.getElementById("thRole").onclick = () => toggleSort("role");
+    document.getElementById("thEmail").onclick = () => toggleSort("email");
+
+    function toggleSort(field) {
+      if (sortState.field === field) {
+        sortState.dir = sortState.dir === "asc" ? "desc" : "asc";
+      } else {
+        sortState.field = field;
+        sortState.dir = "asc";
+      }
+      renderStaffTable();
+    }
+
+    // Modal logic
+    const staffModalBg = document.getElementById('staffModalBg');
+    const staffModal = document.getElementById('staffModal');
+    const staffModalTitle = document.getElementById('staffModalTitle');
+    const staffForm = document.getElementById('staffForm');
+    const staffFormError = document.getElementById('staffFormError');
+    let editingStaffId = null;
+
+    document.getElementById('addStaffBtn').onclick = () => {
+      editingStaffId = null;
+      staffModalTitle.textContent = "Add Staff Member";
+      staffForm.reset();
+      staffFormError.textContent = "";
+      staffModalBg.style.display = 'flex';
+    };
+    document.getElementById('closeStaffModalBtn').onclick = () => { staffModalBg.style.display = 'none'; staffFormError.textContent = ""; };
+    staffModalBg.onclick = (e) => { if (e.target === staffModalBg) { staffModalBg.style.display = 'none'; staffFormError.textContent = ""; } };
+
+    // Edit staff
+    document.getElementById('staffTableBody').onclick = function(e) {
+      if (e.target.classList.contains('edit-btn')) {
+        editingStaffId = e.target.dataset.id;
+        openEditStaffModal(editingStaffId);
+      } else if (e.target.classList.contains('delete-btn')) {
+        const id = e.target.dataset.id;
+        if (confirm("Delete this staff member?")) {
+          deleteDoc(doc(db, "staff", id)).then(async () => {
+            await loadStaff();
+            renderStaffTable();
+          });
+        }
+      }
+    };
+
+    async function openEditStaffModal(id) {
+      const staffSnap = await getDoc(doc(db, "staff", id));
+      if (!staffSnap.exists()) return;
+      const data = staffSnap.data();
+      staffModalTitle.textContent = "Edit Staff Member";
+      staffFormError.textContent = "";
+      document.getElementById('staffName').value = data.name;
+      document.getElementById('staffRole').value = data.role;
+      document.getElementById('staffEmail').value = data.email;
+      staffModalBg.style.display = 'flex';
+    }
+
+    // Staff add/edit submit
+    staffForm.onsubmit = async function(e) {
+      e.preventDefault();
+      const name = document.getElementById('staffName').value.trim();
+      const role = document.getElementById('staffRole').value.trim();
+      const email = document.getElementById('staffEmail').value.trim().toLowerCase();
+
+      if (!name || !role || !email) {
+        staffFormError.textContent = "All fields required.";
+        return;
+      }
+
+      try {
+        if (editingStaffId) {
+          await updateDoc(doc(db, "staff", editingStaffId), { name, role, email });
+        } else {
+          await addDoc(collection(db, "staff"), { name, role, email });
+        }
+        staffModalBg.style.display = 'none';
+        await loadStaff();
+        renderStaffTable();
+      } catch (err) {
+        staffFormError.textContent = "Error saving staff.";
+      }
+    };
+  </script>
+</body>
+</html>

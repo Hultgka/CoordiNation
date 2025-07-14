@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>CoordiNation - Problem History</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Inter', Arial, sans-serif;
+      background: linear-gradient(135deg, #f8fafc, #e3e7ee 60%);
+      margin: 0;
+      min-height: 100vh;
+      color: #222;
+    }
+    header {
+      padding: 28px 0 12px 0;
+      text-align: center;
+      font-size: 2em;
+      font-weight: 600;
+      letter-spacing: 1px;
+      color: #2a3b4c;
+    }
+    .history-container {
+      background: #fff;
+      border-radius: 16px;
+      box-shadow: 0 2px 16px rgba(52,92,172,0.08);
+      max-width: 1100px;
+      margin: 32px auto 0 auto;
+      padding: 30px 20px 24px 20px;
+      border: 1px solid #e6eaf2;
+    }
+    .history-title {
+      font-size: 1.3em;
+      font-weight: 600;
+      margin-bottom: 12px;
+      color: #374151;
+      text-align: center;
+      letter-spacing: 0.5px;
+    }
+    .filter-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 18px;
+      margin-bottom: 18px;
+      justify-content: center;
+      align-items: center;
+    }
+    .filter-bar > * {
+      font-size: 1em;
+    }
+    .filter-label {
+      font-weight: 600;
+      color: #374151;
+      margin-right: 6px;
+    }
+    .filter-input {
+      padding: 6px 10px;
+      border: 1px solid #cbd5e1;
+      border-radius: 7px;
+      background: #f7f8fa;
+      font-size: 1em;
+      min-width: 80px;
+    }
+    .filter-input[type="date"] {
+      min-width: 120px;
+    }
+    .problem-group-toggle {
+      margin: 0 0 14px 0;
+      text-align: center;
+      font-weight: 600;
+      color: #374151;
+      cursor: pointer;
+      background: #eef2fa;
+      border-radius: 8px;
+      padding: 7px 16px;
+      border: none;
+      font-size: 1em;
+    }
+    .problem-group-toggle.active {
+      background: #dbeafe;
+      color: #2563eb;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+      background: #f9fafb;
+    }
+    th, td {
+      padding: 7px 7px;
+      text-align: left;
+      border-bottom: 1px solid #e6eaf2;
+      font-size: 0.97em;
+      vertical-align: top;
+    }
+    th {
+      background: #eef2fa;
+      font-weight: 600;
+      color: #374151;
+    }
+    tr:last-child td {
+      border-bottom: none;
+    }
+    .no-data {
+      color: #666;
+      text-align: center;
+      font-size: 1em;
+      margin: 22px 0;
+    }
+    .archive-btn {
+      background: #4f46e5;
+      color: #fff;
+      border: none;
+      border-radius: 7px;
+      padding: 5px 15px;
+      font-size: 1em;
+      cursor: pointer;
+      font-weight: 600;
+      margin-top: 3px;
+      box-shadow: 0 2px 8px rgba(52, 92, 172, 0.10);
+      transition: background 0.2s;
+    }
+    .archive-btn:hover {
+      background: #2563eb;
+    }
+    .attachment-link {
+      color: #2563eb;
+      text-decoration: underline;
+      font-weight: 600;
+      margin-right: 5px;
+      font-size: 0.97em;
+    }
+    .change-log-toggle {
+      color: #4f46e5;
+      cursor: pointer;
+      text-decoration: underline;
+      font-size: 0.97em;
+      font-weight: 600;
+      margin-left: 6px;
+    }
+    .change-log-block {
+      display: none;
+      background: #f1f5fb;
+      border-radius: 7px;
+      padding: 7px 16px;
+      margin: 6px 0 0 0;
+      font-size: 0.93em;
+      color: #1e293b;
+    }
+    .problem-group-title {
+      font-size: 1.1em;
+      font-weight: 700;
+      color: #2563eb;
+      margin-top: 20px;
+      margin-bottom: 3px;
+      background: #f0f6fe;
+      border-radius: 6px;
+      padding: 4px 12px;
+    }
+    .problem-count-badge {
+      background: #e0e7ff;
+      color: #4f46e5;
+      font-size: 0.92em;
+      font-weight: 600;
+      border-radius: 8px;
+      padding: 2px 9px;
+      margin-left: 7px;
+    }
+    .back-link {
+      display: block;
+      margin: 18px auto 0 auto;
+      text-align: center;
+      background: none;
+      color: #2563eb;
+      font-weight: 600;
+      text-decoration: underline;
+      font-size: 1.05em;
+      border: none;
+      cursor: pointer;
+      transition: color 0.2s;
+    }
+    .back-link:hover {
+      color: #4f46e5;
+    }
+    @media (max-width: 1200px) {
+      .history-container { max-width: 99vw; }
+      table { font-size: 0.93em; }
+    }
+    @media (max-width: 600px) {
+      .history-container { padding: 8px 1px; }
+      header { font-size: 1.1em; }
+      .history-title { font-size: 1em; }
+      th, td { font-size: 0.91em; }
+      .filter-bar { gap: 10px; }
+    }
+  </style>
+</head>
+<body>
+  <header>CoordiNation - Problem History</header>
+  <div class="history-container">
+    <div class="history-title">All Problems</div>
+    <div class="filter-bar">
+      <label class="filter-label" for="titleFilter">Title:</label>
+      <input class="filter-input" type="text" id="titleFilter" placeholder="Search title...">
+      <label class="filter-label" for="staffFilter">Staff:</label>
+      <input class="filter-input" type="text" id="staffFilter" placeholder="Search staff...">
+      <label class="filter-label" for="locationFilter">Location:</label>
+      <input class="filter-input" type="text" id="locationFilter" placeholder="Location...">
+      <label class="filter-label" for="statusFilter">Status:</label>
+      <select id="statusFilter" class="filter-input">
+        <option value="">All</option>
+        <option value="open">Open</option>
+        <option value="archived">Archived</option>
+      </select>
+      <label class="filter-label" for="dateFilter">Date:</label>
+      <input class="filter-input" type="date" id="dateFilter">
+      <button id="clearFiltersBtn" class="filter-input" style="background:#eef2fa;font-weight:600;cursor:pointer;">Clear</button>
+    </div>
+    <button id="groupToggleBtn" class="problem-group-toggle">Group By Common Title</button>
+    <div id="historyTableContainer">
+      <div class="no-data" id="noDataMsg" style="display:none;">No problems found.</div>
+      <div id="problemGroups" style="display:none;"></div>
+      <table id="problemTable" style="display:table;">
+        <thead>
+          <tr>
+            <th>Title</th>
+            <th>Location</th>
+            <th>Staff</th>
+            <th>Children</th>
+            <th>Description</th>
+            <th>Next Steps</th>
+            <th>Status</th>
+            <th>Meeting</th>
+            <th>Attachments</th>
+            <th>Change Log</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <a class="back-link" href="problem-solving.html">&larr; Back to Problem Solving</a>
+  </div>
+  <!-- Firebase JS SDK -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
+    import { getFirestore, collection, getDocs, updateDoc, doc } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
+
+    // Your Firebase config
+    const firebaseConfig = {
+      apiKey: "AIzaSyDXhHCNUsQoQ6SRYWYhPEPI811-2xTnlpE",
+      authDomain: "school-coordination.firebaseapp.com",
+      projectId: "school-coordination",
+      storageBucket: "school-coordination.firebasestorage.app",
+      messagingSenderId: "177630449005",
+      appId: "1:177630449005:web:50f8bd0ff1244d53c35e64"
+    };
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    let allProblems = [];
+    let meetingMap = {};
+    let grouped = false;
+
+    // Helper: Render Table
+    function renderTable() {
+      const table = document.getElementById('problemTable');
+      const tbody = table.querySelector('tbody');
+      const noDataMsg = document.getElementById('noDataMsg');
+      const groupsDiv = document.getElementById('problemGroups');
+
+      // Filters
+      const titleFilter = document.getElementById('titleFilter').value.trim().toLowerCase();
+      const staffFilter = document.getElementById('staffFilter').value.trim().toLowerCase();
+      const locationFilter = document.getElementById('locationFilter').value.trim().toLowerCase();
+      const statusFilter = document.getElementById('statusFilter').value;
+      const dateFilter = document.getElementById('dateFilter').value;
+
+      let filtered = allProblems.filter(problem => {
+        if (titleFilter && !(problem.problemTitle || "").toLowerCase().includes(titleFilter)) return false;
+        if (locationFilter && !(problem.problemLocation || "").toLowerCase().includes(locationFilter)) return false;
+        if (staffFilter && !(problem.staffInvolved || []).some(s=>s.toLowerCase().includes(staffFilter))) return false;
+        if (statusFilter && problem.status !== statusFilter) return false;
+        if (dateFilter && (!problem.createdAt || !problem.createdAt.startsWith(dateFilter))) return false;
+        return true;
+      });
+
+      // Grouped display
+      if (grouped) {
+        table.style.display = 'none';
+        groupsDiv.style.display = 'block';
+        groupsDiv.innerHTML = '';
+        // Group by title
+        let groups = {};
+        filtered.forEach(problem => {
+          const title = problem.problemTitle || 'Untitled';
+          if (!groups[title]) groups[title] = [];
+          groups[title].push(problem);
+        });
+        Object.keys(groups).forEach(title => {
+          const groupArr = groups[title];
+          const groupDiv = document.createElement('div');
+          groupDiv.innerHTML = `
+            <div class="problem-group-title">${title} <span class="problem-count-badge">${groupArr.length}</span></div>
+            <table style="width:100%;margin-bottom:18px;">
+              <thead>
+                <tr>
+                  <th>Location</th>
+                  <th>Staff</th>
+                  <th>Children</th>
+                  <th>Description</th>
+                  <th>Next Steps</th>
+                  <th>Status</th>
+                  <th>Meeting</th>
+                  <th>Attachments</th>
+                  <th>Change Log</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${groupArr.map(problemRowHTML).join('')}
+              </tbody>
+            </table>
+          `;
+          groupsDiv.appendChild(groupDiv);
+        });
+        if (filtered.length === 0) {
+          groupsDiv.innerHTML = '<div class="no-data">No problems found.</div>';
+        }
+      } else {
+        groupsDiv.style.display = 'none';
+        table.style.display = 'table';
+        tbody.innerHTML = filtered.map(problemRowHTML).join('');
+        if (filtered.length === 0) {
+          table.style.display = 'none';
+          noDataMsg.style.display = 'block';
+        } else {
+          table.style.display = 'table';
+          noDataMsg.style.display = 'none';
+        }
+      }
+    }
+
+    function problemRowHTML(problem, idx) {
+      // Staff
+      const staffCell = (problem.staffInvolved || []).join(', ');
+      // Children
+      let childrenCell = '';
+      if (problem.childrenInvolved && Array.isArray(problem.childrenNames)) {
+        childrenCell = problem.childrenNames.join(', ');
+      } else {
+        childrenCell = '<span style="color:#999;">None</span>';
+      }
+      // Description points
+      let descCell = (problem.problemPoints || []).map((pt,i)=>`<div><b>Point ${i+1}:</b> ${pt}</div>`).join('');
+      // Next steps
+      let nextStepsCell = (problem.nextSteps || []).map(step =>
+        `<div><b>Step:</b> ${step.desc}<br><b>Responsible:</b> ${Array.isArray(step.responsible)? step.responsible.join(', ') : ''}</div>`
+      ).join('');
+      // Meeting
+      let meetingCell = "";
+      if (problem.meetingId && meetingMap[problem.meetingId]) {
+        let m = meetingMap[problem.meetingId];
+        meetingCell = `${m.meetingTitle || 'Untitled'} (${m.meetingDate || ''})`;
+      }
+      // Attachments
+      let attachCell = "";
+      if (Array.isArray(problem.attachmentURLs) && problem.attachmentURLs.length > 0) {
+        attachCell = problem.attachmentURLs.map((url, i) =>
+          `<a class="attachment-link" href="${url}" target="_blank">File ${i+1}</a>`
+        ).join('');
+      } else {
+        attachCell = '<span style="color:#999;">None</span>';
+      }
+      // Status
+      let statusCell = problem.status === "archived"
+        ? '<span style="color:green;font-weight:600;">Archived</span>'
+        : '<span style="color:#e11d48;font-weight:600;">Open</span>';
+      // Change log toggle
+      const changeID = 'changeLog-' + Math.random().toString(36).substring(2, 9) + idx;
+      let changeLogBtn = `<span class="change-log-toggle" onclick="document.getElementById('${changeID}').style.display=document.getElementById('${changeID}').style.display==='block'?'none':'block'">Show</span>`;
+      // Change log block
+      let changeLogBlock = `<div id="${changeID}" class="change-log-block">`;
+      if (problem.changeLog && problem.changeLog.length > 0) {
+        changeLogBlock += problem.changeLog.map(log =>
+          `<div>
+            <b>Who:</b> ${log.who || 'Unknown'}<br>
+            <b>When:</b> ${log.when ? new Date(log.when).toLocaleString() : ''}<br>
+            <b>What:</b> ${log.what || ''}
+          </div><hr style="border:0;border-top:1px solid #cbd5e1;">`
+        ).join('');
+      } else {
+        changeLogBlock += 'No log.';
+      }
+      changeLogBlock += '</div>';
+      // Archive button
+      let actionCell = "";
+      if (problem.status !== "archived") {
+        actionCell = `<button class="archive-btn" data-id="${problem._docId}">Archive</button>`;
+      }
+      return `<tr>
+        <td>${problem.problemTitle || ''}</td>
+        <td>${problem.problemLocation || ''}</td>
+        <td>${staffCell}</td>
+        <td>${childrenCell}</td>
+        <td>${descCell}</td>
+        <td>${nextStepsCell}</td>
+        <td>${statusCell}</td>
+        <td>${meetingCell}</td>
+        <td>${attachCell}</td>
+        <td>${changeLogBtn}${changeLogBlock}</td>
+        <td>${actionCell}</td>
+      </tr>`;
+    }
+
+    // Archive logic (mark status archived and log)
+    document.addEventListener('click', async function(e) {
+      if (e.target.classList.contains('archive-btn')) {
+        const docId = e.target.getAttribute('data-id');
+        if (!docId) return;
+        e.target.disabled = true;
+        e.target.textContent = "Archiving...";
+        try {
+          const problemRef = doc(db, "problems", docId);
+          // Find local problem for log
+          const problem = allProblems.find(p=>p._docId===docId);
+          let newLog = (problem.changeLog || []).concat([{
+            who: "Admin",
+            when: new Date().toISOString(),
+            what: "Archived/solved problem"
+          }]);
+          await updateDoc(problemRef, {
+            status: "archived",
+            changeLog: newLog,
+            updatedAt: new Date().toISOString()
+          });
+          // Reload all
+          await loadProblems();
+        } catch (err) {
+          e.target.textContent = "Error!";
+        }
+      }
+    });
+
+    // Load Meetings for mapping
+    async function loadMeetingMap() {
+      const snap = await getDocs(collection(db, "meetings"));
+      meetingMap = {};
+      snap.forEach(doc => {
+        meetingMap[doc.id] = doc.data();
+      });
+    }
+
+    // Load Problems
+    async function loadProblems() {
+      const table = document.getElementById('problemTable');
+      const noDataMsg = document.getElementById('noDataMsg');
+      table.style.display = 'none';
+      noDataMsg.style.display = 'none';
+      allProblems = [];
+      try {
+        await loadMeetingMap();
+        const snap = await getDocs(collection(db, "problems"));
+        snap.forEach(doc => {
+          let data = doc.data();
+          data._docId = doc.id;
+          allProblems.push(data);
+        });
+        renderTable();
+      } catch (err) {
+        noDataMsg.textContent = "Error loading problems.";
+        noDataMsg.style.display = 'block';
+      }
+    }
+
+    // Filter Events
+    document.getElementById('titleFilter').addEventListener('input', renderTable);
+    document.getElementById('staffFilter').addEventListener('input', renderTable);
+    document.getElementById('locationFilter').addEventListener('input', renderTable);
+    document.getElementById('statusFilter').addEventListener('change', renderTable);
+    document.getElementById('dateFilter').addEventListener('change', renderTable);
+    document.getElementById('clearFiltersBtn').addEventListener('click', function() {
+      document.getElementById('titleFilter').value = '';
+      document.getElementById('staffFilter').value = '';
+      document.getElementById('locationFilter').value = '';
+      document.getElementById('statusFilter').value = '';
+      document.getElementById('dateFilter').value = '';
+      renderTable();
+    });
+
+    // Group toggle
+    document.getElementById('groupToggleBtn').onclick = function() {
+      grouped = !grouped;
+      this.classList.toggle('active', grouped);
+      this.textContent = grouped ? "Show Individual Problems" : "Group By Common Title";
+      renderTable();
+    };
+
+    // Global for change log toggles
+    window.renderTable = renderTable;
+
+    loadProblems();
+  </script>
+</body>
+</html>
