@@ -126,6 +126,112 @@
       border-radius: 7px;
       padding: 5px 7px;
     }
+    .edit-btn, .delete-btn {
+      background: #2563eb;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      padding: 4px 12px;
+      font-size: 0.98em;
+      font-weight: 600;
+      cursor: pointer;
+      margin-right: 5px;
+      transition: background 0.2s;
+      margin-top: 4px;
+    }
+    .edit-btn:hover {
+      background: #374151;
+    }
+    .delete-btn {
+      background: #e11d48;
+    }
+    .delete-btn:hover {
+      background: #b91c1c;
+    }
+    .modal-bg {
+      position: fixed;
+      top: 0; left: 0; right:0; bottom:0;
+      background: rgba(0,0,0,0.25);
+      z-index: 2000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .modal {
+      background: #fff;
+      border-radius: 16px;
+      box-shadow: 0 2px 16px rgba(52,92,172,0.15);
+      max-width: 480px;
+      width: 95vw;
+      padding: 28px 20px 18px 20px;
+      border: 1px solid #e6eaf2;
+      z-index: 2001;
+    }
+    .modal-title {
+      font-size: 1.1em;
+      font-weight: 600;
+      margin-bottom: 12px;
+      color: #374151;
+      text-align: center;
+      letter-spacing: 0.5px;
+    }
+    .modal-group {
+      margin-bottom: 14px;
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+    }
+    .modal-actions {
+      text-align: center;
+      margin-top: 12px;
+    }
+    .modal-btn {
+      background: linear-gradient(90deg, #4f46e5, #2563eb);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      padding: 8px 18px;
+      font-size: 1em;
+      font-weight: 600;
+      cursor: pointer;
+      margin-right: 7px;
+      margin-bottom: 6px;
+      box-shadow: 0 2px 8px rgba(52, 92, 172, 0.07);
+      transition: background 0.2s;
+    }
+    .modal-btn:hover {
+      background: linear-gradient(90deg, #2563eb, #4f46e5);
+    }
+    .modal-close-btn {
+      background: #e11d48;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      padding: 8px 18px;
+      font-size: 1em;
+      font-weight: 600;
+      cursor: pointer;
+      margin-bottom: 6px;
+      margin-left: 7px;
+      box-shadow: 0 2px 8px rgba(52, 92, 172, 0.07);
+      transition: background 0.2s;
+    }
+    .modal-close-btn:hover {
+      background: #b91c1c;
+    }
+    .modal-success {
+      color: #0c7c3b;
+      font-weight: 600;
+      margin-top: 10px;
+      text-align: center;
+    }
+    .modal-error {
+      color: #e11d48;
+      font-weight: 600;
+      margin-top: 10px;
+      text-align: center;
+    }
     @media (max-width: 1100px) {
       .history-container { max-width: 99vw; }
       table { font-size: 0.95em; }
@@ -172,6 +278,7 @@
             <th>Next Steps</th>
             <th>Observations</th>
             <th>Attachments</th>
+            <th>Actions</th>
           </tr>
         </thead>
         <tbody></tbody>
@@ -179,10 +286,12 @@
     </div>
     <a class="back-link" href="meeting-form.html">&larr; Back to Meeting Form</a>
   </div>
+  <!-- Edit Modal (hidden by default) -->
+  <div id="editModalBg" style="display:none;"></div>
   <!-- Firebase JS SDK -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
-    import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
+    import { getFirestore, collection, getDocs, doc, deleteDoc, updateDoc } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
 
     // Your Firebase config
     const firebaseConfig = {
@@ -198,6 +307,7 @@
     const db = getFirestore(app);
 
     let allMeetings = [];
+    let allMeetingDocs = [];
     let observationMap = {}; // For displaying linked observation info
 
     // Helper: Date compare (YYYY-MM-DD)
@@ -222,7 +332,8 @@
       const startDateFilter = document.getElementById('startDateFilter').value;
       const endDateFilter = document.getElementById('endDateFilter').value;
 
-      let filtered = allMeetings.filter(meeting => {
+      let filtered = allMeetings.map((meeting, idx) => ({meeting, idx})).filter(obj => {
+        const meeting = obj.meeting;
         // Title filter
         if (titleFilter && !(meeting.meetingTitle || "").toLowerCase().includes(titleFilter)) return false;
         // Location filter
@@ -243,7 +354,9 @@
       } else {
         table.style.display = 'table';
         noDataMsg.style.display = 'none';
-        filtered.forEach(meeting => {
+        filtered.forEach(obj => {
+          const meeting = obj.meeting;
+          const idx = obj.idx;
           const dateCell = meeting.meetingDate || '';
           const timeCell = meeting.meetingTime || '';
           const titleCell = meeting.meetingTitle || '';
@@ -287,6 +400,12 @@
             attachCell = '<span style="color:#999;">None</span>';
           }
 
+          // Actions cell
+          const actionsCell = `
+            <button class="edit-btn" data-idx="${idx}">Edit</button>
+            <button class="delete-btn" data-idx="${idx}">Delete</button>
+          `;
+
           const tr = document.createElement('tr');
           tr.innerHTML = `
             <td>${dateCell}</td>
@@ -298,8 +417,23 @@
             <td>${nextStepsCell}</td>
             <td>${obsCell}</td>
             <td>${attachCell}</td>
+            <td>${actionsCell}</td>
           `;
           tbody.appendChild(tr);
+        });
+
+        // Attach handler for edit/delete buttons
+        tbody.querySelectorAll('.delete-btn').forEach(btn => {
+          btn.onclick = function() {
+            const idx = parseInt(btn.getAttribute('data-idx'));
+            confirmDelete(idx);
+          };
+        });
+        tbody.querySelectorAll('.edit-btn').forEach(btn => {
+          btn.onclick = function() {
+            const idx = parseInt(btn.getAttribute('data-idx'));
+            openEditModal(idx);
+          };
         });
       }
     }
@@ -320,17 +454,126 @@
       table.style.display = 'none';
       noDataMsg.style.display = 'none';
       allMeetings = [];
+      allMeetingDocs = [];
       try {
         await loadObservationMap();
         const snap = await getDocs(collection(db, "meetings"));
         snap.forEach(doc => {
           allMeetings.push(doc.data());
+          allMeetingDocs.push(doc);
         });
         renderTable();
       } catch (err) {
         noDataMsg.textContent = "Error loading meetings.";
         noDataMsg.style.display = 'block';
       }
+    }
+
+    // Delete handler
+    function confirmDelete(idx) {
+      const meetingDoc = allMeetingDocs[idx];
+      showModal(`
+        <div class="modal-title">Delete Meeting</div>
+        <div>Are you sure you want to delete this meeting?<br><br>
+        <strong>${allMeetings[idx].meetingTitle || 'Untitled'} (${allMeetings[idx].meetingDate || ''})</strong></div>
+        <div class="modal-actions">
+          <button id="deleteConfirmBtn" class="modal-btn">Delete</button>
+          <button id="modalCloseBtn" class="modal-close-btn">Cancel</button>
+        </div>
+        <div id="modalMsg"></div>
+      `);
+
+      document.getElementById('deleteConfirmBtn').onclick = async function() {
+        try {
+          await deleteDoc(meetingDoc.ref);
+          document.getElementById('modalMsg').textContent = "Meeting deleted!";
+          setTimeout(() => {
+            closeModal();
+            loadMeetings();
+          }, 900);
+        } catch (err) {
+          document.getElementById('modalMsg').textContent = "Error deleting meeting.";
+        }
+      };
+      document.getElementById('modalCloseBtn').onclick = closeModal;
+    }
+
+    // Edit handler
+    function openEditModal(idx) {
+      const meeting = allMeetings[idx];
+      const meetingDoc = allMeetingDocs[idx];
+      // Build modal form
+      showModal(`
+        <div class="modal-title">Edit Meeting</div>
+        <form id="editMeetingForm">
+          <div class="modal-group">
+            <label>Date:</label>
+            <input type="date" id="editDate" value="${meeting.meetingDate || ''}">
+          </div>
+          <div class="modal-group">
+            <label>Time:</label>
+            <input type="text" id="editTime" value="${meeting.meetingTime || ''}">
+          </div>
+          <div class="modal-group">
+            <label>Title/Type:</label>
+            <input type="text" id="editTitle" value="${meeting.meetingTitle || ''}">
+          </div>
+          <div class="modal-group">
+            <label>Location:</label>
+            <input type="text" id="editLocation" value="${meeting.meetingLocation || ''}">
+          </div>
+          <div class="modal-group">
+            <label>Participants (comma separated):</label>
+            <input type="text" id="editParticipants" value="${(meeting.participants || []).join(', ')}">
+          </div>
+          <div class="modal-actions">
+            <button type="submit" class="modal-btn">Save</button>
+            <button type="button" id="modalCloseBtn" class="modal-close-btn">Cancel</button>
+          </div>
+          <div id="modalMsg"></div>
+        </form>
+      `);
+
+      document.getElementById('modalCloseBtn').onclick = closeModal;
+      document.getElementById('editMeetingForm').onsubmit = async function(e) {
+        e.preventDefault();
+        document.getElementById('modalMsg').textContent = '';
+        const newDate = document.getElementById('editDate').value;
+        const newTime = document.getElementById('editTime').value;
+        const newTitle = document.getElementById('editTitle').value;
+        const newLocation = document.getElementById('editLocation').value;
+        const newParticipants = document.getElementById('editParticipants').value.split(',').map(s=>s.trim()).filter(Boolean);
+        try {
+          await updateDoc(meetingDoc.ref, {
+            meetingDate: newDate,
+            meetingTime: newTime,
+            meetingTitle: newTitle,
+            meetingLocation: newLocation,
+            participants: newParticipants
+          });
+          document.getElementById('modalMsg').textContent = "Meeting updated!";
+          setTimeout(() => {
+            closeModal();
+            loadMeetings();
+          }, 900);
+        } catch (err) {
+          document.getElementById('modalMsg').textContent = "Error updating meeting.";
+        }
+      };
+    }
+
+    // Modal functions
+    function showModal(htmlContent) {
+      let bg = document.getElementById('editModalBg');
+      bg.innerHTML = `<div class="modal">${htmlContent}</div>`;
+      bg.style.display = 'flex';
+      bg.className = "modal-bg";
+    }
+    function closeModal() {
+      let bg = document.getElementById('editModalBg');
+      bg.style.display = 'none';
+      bg.innerHTML = '';
+      bg.className = "";
     }
 
     // Filter Events
