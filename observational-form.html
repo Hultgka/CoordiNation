@@ -354,9 +354,13 @@
         return;
       }
 
+      // --- FIX: Add staffName field to match report-generator.html ---
+      // The report generator expects each observation to have a field named staffName
+      // that matches the observed staff's name exactly (as in the dropdown)
       const observationData = {
         observedStaff,
-        observationDate,
+        staffName: observedStaff, // <-- this is needed for report generator to match!
+        date: observationDate,    // <-- this is needed for report generator to match!
         observerName,
         stars: [star1, star2, star3],
         wish,
