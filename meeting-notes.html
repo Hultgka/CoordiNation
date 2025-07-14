@@ -397,10 +397,9 @@
       addNextStepArea();
       addNextStepArea();
     }
-    // Wait for staff to be loaded
     setTimeout(addInitialNextSteps, 600);
 
-    // Form submission
+    // --- FIX: Use staffInvolved field for report-generator compatibility ---
     document.getElementById('meetingForm').onsubmit = async function(e) {
       e.preventDefault();
       const formSuccess = document.getElementById('formSuccess');
@@ -478,14 +477,15 @@
       const meetingTime = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second:'2-digit' });
       const meetingTimestamp = now.toISOString();
 
-      // Build meeting data
+      // --- IMPORTANT: Add staffInvolved field for the report generator ---
       const meetingData = {
         meetingDate,
         meetingTime,
         meetingTimestamp,
         meetingLocation,
         meetingTitle,
-        participants,
+        participants, // keep for other pages
+        staffInvolved: participants, // <-- this is needed for the report generator!
         attachmentURLs,
         linkedObservations,
         discussions,
