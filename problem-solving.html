@@ -513,10 +513,10 @@
         what: "Created problem"
       }];
 
-      // Build problem data
+      // --- FIX: Add problemDate and status for report-generator compatibility ---
       const problemData = {
         meetingId,
-        staffInvolved,
+        staffInvolved, // used by report generator
         problemTitle,
         problemLocation,
         problemPoints,
@@ -525,7 +525,8 @@
         attachmentURLs,
         nextSteps,
         changeLog,
-        status: "open",
+        status: "open", // used by report generator
+        problemDate: now.toISOString().substring(0, 10), // YYYY-MM-DD, used by generator
         createdAt: submitTime,
         updatedAt: submitTime
       };
