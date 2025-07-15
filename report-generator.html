@@ -367,6 +367,10 @@
       allObservations = [];
       obsSnap.forEach(docSnap => {
         let d = docSnap.data(); d._docId = docSnap.id;
+        // Fix: support legacy fields and normalize
+        d.staffName = d.staffName || d.observedStaff || d.staff || "";
+        d.date = d.date || d.observationDate || d.timestamp?.substring(0,10) || "";
+        d.notes = d.notes || d.observationNotes || "";
         allObservations.push(d);
       });
       // Meetings
@@ -374,6 +378,10 @@
       allMeetings = [];
       meetSnap.forEach(docSnap => {
         let d = docSnap.data(); d._docId = docSnap.id;
+        // Fix: support legacy fields and normalize
+        d.staffInvolved = d.staffInvolved || d.participants || [];
+        d.meetingDate = d.meetingDate || d.date || d.meetingTimestamp?.substring(0,10) || "";
+        d.notes = d.notes || "";
         allMeetings.push(d);
       });
       // Problems
@@ -381,6 +389,10 @@
       allProblems = [];
       probSnap.forEach(docSnap => {
         let d = docSnap.data(); d._docId = docSnap.id;
+        // Fix: support legacy fields and normalize
+        d.staffInvolved = d.staffInvolved || d.staff || [];
+        d.problemDate = d.problemDate || d.date || d.createdAt?.substring(0,10) || "";
+        d.status = d.status || "open";
         allProblems.push(d);
       });
     }
@@ -414,23 +426,22 @@
     // --- REPORT PREVIEW LOGIC ---
     function buildReportHTML(staffName, opts) {
       let html = `<div style="font-size:1.25em;font-weight:600;text-align:center;margin-bottom:10px;">Report for ${staffName}</div>`;
-      // Filter by date/keywords
       let start = opts.startDate, end = opts.endDate, keywords = (opts.keywords||"").toLowerCase().split(/[, ]+/).filter(Boolean);
 
       // Observations
       if (opts.obs) {
-        let obs = allObservations.filter(o => (o.staffName || o.staff || '').toLowerCase() === staffName.toLowerCase())
+        let obs = allObservations.filter(o => o.staffName && o.staffName.toLowerCase() === staffName.toLowerCase())
           .filter(o => (!start || dateInRange(o.date, start, end)))
           .filter(o => keywordMatch(o, keywords));
         html += `<div style="font-size:1.09em;font-weight:600;margin:9px 0 5px 0;">Observations</div>`;
         if (obs.length === 0) html += `<div style="color:#888;">No observations.</div>`;
         obs.forEach(o => {
-          html += `<div style="margin-bottom:3px;"><b>Date:</b> ${o.date || ''} | <b>Notes:</b> ${o.notes || o.observationNotes || ''}</div>`;
+          html += `<div style="margin-bottom:3px;"><b>Date:</b> ${o.date || ''} | <b>Notes:</b> ${o.notes || ''}</div>`;
         });
       }
       // Meetings
       if (opts.meet) {
-        let meets = allMeetings.filter(m => (m.staffInvolved || []).map(n=>n.toLowerCase()).includes(staffName.toLowerCase()))
+        let meets = allMeetings.filter(m => Array.isArray(m.staffInvolved) && m.staffInvolved.map(n=>n.toLowerCase()).includes(staffName.toLowerCase()))
           .filter(m => (!start || dateInRange(m.meetingDate, start, end)))
           .filter(m => keywordMatch(m, keywords));
         html += `<div style="font-size:1.09em;font-weight:600;margin:9px 0 5px 0;">Meetings</div>`;
@@ -441,8 +452,8 @@
       }
       // Problems
       if (opts.prob) {
-        let probs = allProblems.filter(p => (p.staffInvolved || []).map(n=>n.toLowerCase()).includes(staffName.toLowerCase()))
-          .filter(p => (!start || dateInRange(p.problemDate, start, end) || dateInRange(p.date, start, end)))
+        let probs = allProblems.filter(p => Array.isArray(p.staffInvolved) && p.staffInvolved.map(n=>n.toLowerCase()).includes(staffName.toLowerCase()))
+          .filter(p => (!start || dateInRange(p.problemDate, start, end)))
           .filter(p => keywordMatch(p, keywords));
         html += `<div style="font-size:1.09em;font-weight:600;margin:9px 0 5px 0;">Problems</div>`;
         if (probs.length === 0) html += `<div style="color:#888;">No problems.</div>`;
@@ -623,33 +634,33 @@
             sheets.push({ title: "Observations", headers, data: obs });
           else
             obs.forEach(o => {
-              combinedRows.push(["Observation", o._docId, o.staffName, o.date, "", "", o.notes || o.observationNotes, "", ""]);
+              combinedRows.push(["Observation", o._docId, o.staffName, o.date, "", "", o.notes, "", ""]);
             });
         }
         if (selectedTypes.includes("meetings")) {
           let meets = allMeetings.slice();
-          if (!allStaff) meets = filterByStaff(meets, staffVals, "staff", "staffInvolved");
-          meets = filterByDate(meets, ["meetingDate", "date"], start, end);
+          if (!allStaff) meets = filterByStaff(meets, staffVals, "staffInvolved", "staffInvolved");
+          meets = filterByDate(meets, ["meetingDate"], start, end);
           meets = filterByKeywords(meets, keywords);
           let headers = ["_docId", "meetingTitle", "meetingDate", "staffInvolved", "notes"];
           if (splitSheets)
             sheets.push({ title: "Meetings", headers, data: meets });
           else
             meets.forEach(m => {
-              combinedRows.push(["Meeting", m._docId, m.staffInvolved ? m.staffInvolved.join(", ") : "", m.meetingDate || m.date, m.meetingTitle, "", m.notes, "", ""]);
+              combinedRows.push(["Meeting", m._docId, m.staffInvolved ? m.staffInvolved.join(", ") : "", m.meetingDate, m.meetingTitle, "", m.notes, "", ""]);
             });
         }
         if (selectedTypes.includes("problems")) {
           let probs = allProblems.slice();
-          if (!allStaff) probs = filterByStaff(probs, staffVals, "staff", "staffInvolved");
-          probs = filterByDate(probs, ["problemDate", "date"], start, end);
+          if (!allStaff) probs = filterByStaff(probs, staffVals, "staffInvolved", "staffInvolved");
+          probs = filterByDate(probs, ["problemDate"], start, end);
           probs = filterByKeywords(probs, keywords);
           let headers = ["_docId", "problemTitle", "problemDate", "problemLocation", "staffInvolved", "problemPoints", "childrenInvolved", "childrenNames", "status"];
           if (splitSheets)
             sheets.push({ title: "Problems", headers, data: probs });
           else
             probs.forEach(p => {
-              combinedRows.push(["Problem", p._docId, p.staffInvolved ? p.staffInvolved.join(", ") : "", p.problemDate || p.date, p.problemTitle, p.problemLocation, "", p.status, ""]);
+              combinedRows.push(["Problem", p._docId, p.staffInvolved ? p.staffInvolved.join(", ") : "", p.problemDate, p.problemTitle, p.problemLocation, "", p.status, ""]);
             });
         }
 
