@@ -128,7 +128,9 @@
   </div>
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
-    import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
+    import { getFirestore, collection, getDocs, query, where } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
+    import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
+    import { getDoc } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
     const firebaseConfig = {
       apiKey: "AIzaSyDXhHCNUsQoQ6SRYWYhPEPI811-2xTnlpE",
       authDomain: "school-coordination.firebaseapp.com",
@@ -139,7 +141,9 @@
     };
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
+    const auth = getAuth(app);
 
+    let currentUserOrgId = null;
     let staffList = [];
     let staffEmailMap = {};
     let allObservations = [];
@@ -150,7 +154,32 @@
       return d.displayName || d.name || d.fullName || d.staffName || d.email || d.id || "";
     }
 
+    // Utility: Get Current User OrgId
+    async function getCurrentUserOrgId() {
+      const user = auth.currentUser;
+      if (!user) return null;
+      const userDoc = await getDoc(doc(db, "admins", user.uid));
+      if (userDoc.exists()) {
+        return userDoc.data().orgId;
+      }
+      return null;
+    }
+    async function waitForAuthAndOrgId() {
+      return new Promise(resolve => {
+        onAuthStateChanged(auth, async (user) => {
+          if (user) {
+            currentUserOrgId = await getCurrentUserOrgId();
+            resolve();
+          } else {
+            currentUserOrgId = null;
+            resolve();
+          }
+        });
+      });
+    }
+
     async function loadStaffDropdowns() {
+      await waitForAuthAndOrgId();
       let foundStaff = [];
       try {
         const staffSnap = await getDocs(collection(db, "staff"));
@@ -159,6 +188,8 @@
         let opts = "";
         staffSnap.forEach(docSnap => {
           const d = docSnap.data();
+          // If you want to filter staff by orgId, add this:
+          // if (d.orgId !== currentUserOrgId) return;
           const name = getStaffName(d);
           if (name) {
             staffList.push({ id: docSnap.id, ...d, displayName: name });
@@ -230,20 +261,21 @@
     }
 
     async function fetchAllData() {
-      // Fetch and normalize
-      const obsSnap = await getDocs(collection(db, "observations"));
+      await waitForAuthAndOrgId();
+      // Fetch and normalize with orgId filtering
+      const obsSnap = await getDocs(query(collection(db, "observations"), where("orgId", "==", currentUserOrgId)));
       allObservations = [];
       obsSnap.forEach(docSnap => {
         let d = docSnap.data(); d._docId = docSnap.id;
         allObservations.push(normalizeObservation(d));
       });
-      const meetSnap = await getDocs(collection(db, "meetings"));
+      const meetSnap = await getDocs(query(collection(db, "meetings"), where("orgId", "==", currentUserOrgId)));
       allMeetings = [];
       meetSnap.forEach(docSnap => {
         let d = docSnap.data(); d._docId = docSnap.id;
         allMeetings.push(normalizeMeeting(d));
       });
-      const probSnap = await getDocs(collection(db, "problems"));
+      const probSnap = await getDocs(query(collection(db, "problems"), where("orgId", "==", currentUserOrgId)));
       allProblems = [];
       probSnap.forEach(docSnap => {
         let d = docSnap.data(); d._docId = docSnap.id;
