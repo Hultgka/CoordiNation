@@ -247,10 +247,6 @@
       .bulk-actions-bar, .search-bar, .report-controls { flex-direction:column; gap:3px;}
     }
   </style>
-  <!-- Google API JS Client -->
-  <script src="https://apis.google.com/js/api.js"></script>
-  <!-- FormSubmit polyfill -->
-  <script src="https://unpkg.com/formsubmit-polyfill"></script>
 </head>
 <body>
   <header>
@@ -464,7 +460,7 @@
       </div>
       <div>
         <button class="btn" id="refreshReportBtn">Refresh Preview</button>
-        <button class="btn" id="exportSheetBtn">Export to Google Sheets</button>
+        <button class="btn" id="exportCSVBtn">Export to CSV</button>
         <button class="btn" id="emailReportBtn">Email Report</button>
         <input type="email" id="reportRecipient" placeholder="Recipient Email...">
         <span id="reportMsg"></span>
@@ -501,12 +497,10 @@
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
 
-    // --- Data holders ---
     let supplies = [];
     let books = [];
     let orders = [];
 
-    // --- SUPPLY CRUD ---
     async function loadSupplies() {
       const snap = await getDocs(collection(db, "inventory_supplies"));
       supplies = [];
@@ -547,7 +541,6 @@
       return arr.slice(0,n);
     }
 
-    // --- SUPPLY FORM ---
     document.getElementById('supplyForm').onsubmit = async function(e) {
       e.preventDefault();
       let name = document.getElementById('supplyName').value.trim();
@@ -574,7 +567,6 @@
       document.getElementById('supplyForm').reset();
     };
 
-    // --- BOOK FORM ---
     document.getElementById('bookForm').onsubmit = async function(e) {
       e.preventDefault();
       let title = document.getElementById('bookTitle').value.trim();
@@ -600,7 +592,6 @@
       document.getElementById('bookForm').reset();
     };
 
-    // --- TABLE RENDERERS ---
     function renderSupplyTable() {
       let search = document.getElementById('supplySearch').value.trim().toLowerCase();
       let sort = document.getElementById('supplySort').value;
@@ -666,7 +657,6 @@
         tbody.appendChild(tr);
       });
     }
-    // --- COMMON ORDERS RENDER ---
     function renderCommonOrders() {
       let arr = getMostCommonOrders(8);
       let html = "<ol>";
@@ -677,7 +667,6 @@
       document.getElementById('commonOrders').innerHTML = html;
     }
 
-    // --- BULK SELECT ---
     document.getElementById('selectAllSupplies').onchange = function() {
       document.querySelectorAll('.supplyRowBox').forEach(box=>box.checked=this.checked);
     };
@@ -685,7 +674,6 @@
       document.querySelectorAll('.bookRowBox').forEach(box=>box.checked=this.checked);
     };
 
-    // --- BULK DELETE ---
     function showModal(title, body, onConfirm) {
       document.getElementById('modalTitle').textContent = title;
       document.getElementById('modalBody').innerHTML = body;
@@ -725,7 +713,6 @@
         });
     };
 
-    // --- BULK EDIT (edits only first selected) ---
     document.getElementById('editSelectedSupplyBtn').onclick = function() {
       let ids = Array.from(document.querySelectorAll('.supplyRowBox:checked')).map(box=>box.getAttribute('data-id'));
       if (!ids.length) return;
@@ -781,13 +768,11 @@
       });
     };
 
-    // --- SEARCH/SORT ---
     document.getElementById('supplySearch').oninput = renderSupplyTable;
     document.getElementById('supplySort').onchange = renderSupplyTable;
     document.getElementById('bookSearch').oninput = renderBookTable;
     document.getElementById('bookSort').onchange = renderBookTable;
 
-    // --- FILE UPLOADS ---
     document.getElementById('supplyFileUpload').onchange = function(e) {
       const file = e.target.files[0];
       if (!file) return;
@@ -838,7 +823,6 @@
       reader.readAsArrayBuffer(file);
     };
 
-    // --- REPORT GENERATOR ---
     function buildReportHTML(type, opts) {
       let html = `<div style="font-size:1.25em;font-weight:600;text-align:center;margin-bottom:10px;">Inventory Report</div>`;
       let start = opts.startDate, end = opts.endDate, search = (opts.search||"").toLowerCase(), mostCommon = opts.mostCommon;
@@ -891,27 +875,31 @@
       document.getElementById('reportPreview').innerHTML = buildReportHTML(type, opts);
     };
 
-    // --- GOOGLE SHEETS EXPORT ---
-    const CLIENT_ID = "567233493732-qrlbl43nhrcanb5pjdpuvju76o022mmj.apps.googleusercontent.com";
-    const SCOPES = "https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive.file";
-    let gapiInited = false;
-    function loadGapi() {
-      return new Promise(resolve => {
-        if (gapiInited) return resolve();
-        gapi.load('client:auth2', () => {
-          gapi.client.init({clientId: CLIENT_ID, scope: SCOPES})
-            .then(()=>{gapiInited=true; resolve();});
-        });
+    // --- CSV EXPORT ---
+    function arrayToCSV(rows, headers) {
+      let csv = headers.join(",") + "\r\n";
+      rows.forEach(row => {
+        csv += headers.map(h => {
+          let val = row[h];
+          if (typeof val === "undefined" || val === null) val = "";
+          if (typeof val === "string") {
+            val = '"' + val.replace(/"/g,'""') + '"';
+          }
+          return val;
+        }).join(",") + "\r\n";
       });
+      return csv;
     }
-    async function getGapiAuth() {
-      await loadGapi();
-      if (!gapi.auth2.getAuthInstance().isSignedIn.get()) {
-        await gapi.auth2.getAuthInstance().signIn();
-      }
-      return gapi.auth2.getAuthInstance().currentUser.get().getAuthResponse().access_token;
+    function downloadCSV(data, filename) {
+      const blob = new Blob([data], {type: "text/csv"});
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
     }
-    document.getElementById('exportSheetBtn').onclick = async function() {
+    document.getElementById('exportCSVBtn').onclick = function() {
       document.getElementById('reportMsg').textContent = "";
       let type = document.getElementById('reportType').value;
       let opts = {
@@ -923,66 +911,37 @@
         search: document.getElementById('reportSearch').value,
         mostCommon: document.getElementById('reportMostCommon').checked
       };
-      try {
-        await loadGapi();
-        await getGapiAuth();
 
-        let spreadsheet = await gapi.client.sheets.spreadsheets.create({
-          properties: {title: `Inventory Export ${new Date().toLocaleString()}`},
-          sheets: (type==="both")?
-            [{properties:{title:"Supplies"}},{properties:{title:"Books"}}]:
-            [{properties:{title:type==="supplies"?"Supplies":"Books"}}]
-        });
-        let sheetId = spreadsheet.result.spreadsheetId;
-
-        if (type==="supplies"||type==="both") {
-          let arr = supplies.slice();
-          if (opts.category) arr = arr.filter(s=>s.category===opts.category);
-          if (opts.startDate) arr = arr.filter(s=>s.date>=opts.startDate);
-          if (opts.endDate) arr = arr.filter(s=>s.date<=opts.endDate);
-          if (opts.search) arr = arr.filter(s=> (s.name||"").toLowerCase().includes(opts.search) || (s.category||"").toLowerCase().includes(opts.search) || (s.notes||"").toLowerCase().includes(opts.search));
-          if (opts.mostCommon) {
-            let commonNames = getMostCommonOrders(8).map(o=>o.name);
-            arr = arr.filter(s=>commonNames.includes(s.name));
-          }
-          let headers = ["Name","Category","Qty","Unit","Notes","Purchase Link","Date Added","Times Ordered"];
-          let rows = [headers];
-          arr.forEach(s=>{
-            rows.push([s.name||"",s.category||"",s.qty||"",s.unit||"",s.notes||"",s.purchaseLink||"",s.date||"",getTimesOrdered(s.name)||0]);
-          });
-          await gapi.client.sheets.spreadsheets.values.update({
-            spreadsheetId: sheetId,
-            range: `Supplies!A1`,
-            valueInputOption:"RAW",
-            values:rows
-          });
+      let filesExported = 0;
+      if (type === "supplies" || type === "both") {
+        let arr = supplies.slice();
+        if (opts.category) arr = arr.filter(s=>s.category===opts.category);
+        if (opts.startDate) arr = arr.filter(s=>s.date>=opts.startDate);
+        if (opts.endDate) arr = arr.filter(s=>s.date<=opts.endDate);
+        if (opts.search) arr = arr.filter(s=> (s.name||"").toLowerCase().includes(opts.search) || (s.category||"").toLowerCase().includes(opts.search) || (s.notes||"").toLowerCase().includes(opts.search));
+        if (opts.mostCommon) {
+          let commonNames = getMostCommonOrders(8).map(o=>o.name);
+          arr = arr.filter(s=>commonNames.includes(s.name));
         }
-        if (type==="books"||type==="both") {
-          let arr = books.slice();
-          if (opts.language) arr = arr.filter(b=>b.language===opts.language);
-          if (opts.grade) arr = arr.filter(b=>b.grade===opts.grade);
-          if (opts.startDate) arr = arr.filter(b=>b.date>=opts.startDate);
-          if (opts.endDate) arr = arr.filter(b=>b.date<=opts.endDate);
-          if (opts.search) arr = arr.filter(b=> (b.title||"").toLowerCase().includes(opts.search) || (b.author||"").toLowerCase().includes(opts.search));
-          let headers = ["Title","Author","Language","Unit","Grade","Qty","Purchase Link","Date Added"];
-          let rows = [headers];
-          arr.forEach(b=>{
-            rows.push([b.title||"",b.author||"",b.language||"",b.unit||"",b.grade||"",b.qty||"",b.purchaseLink||"",b.date||""]);
-          });
-          await gapi.client.sheets.spreadsheets.values.update({
-            spreadsheetId: sheetId,
-            range: `Books!A1`,
-            valueInputOption:"RAW",
-            values:rows
-          });
-        }
-        document.getElementById('reportMsg').innerHTML = `<span class="success-msg">Exported! <a href="https://docs.google.com/spreadsheets/d/${sheetId}" target="_blank">Open Sheet</a></span>`;
-      } catch (e) {
-        document.getElementById('reportMsg').innerHTML = `<span class="fail-msg">Export failed. (${e.message||e})</span>`;
+        let headers = ["Name","Category","Qty","Unit","Notes","Purchase Link","Date","Times Ordered"];
+        arr.forEach(s=>{s["Times Ordered"] = getTimesOrdered(s.name)||0;});
+        downloadCSV(arrayToCSV(arr, headers), "Supplies_Inventory.csv");
+        filesExported++;
       }
+      if (type === "books" || type === "both") {
+        let arr = books.slice();
+        if (opts.language) arr = arr.filter(b=>b.language===opts.language);
+        if (opts.grade) arr = arr.filter(b=>b.grade===opts.grade);
+        if (opts.startDate) arr = arr.filter(b=>b.date>=opts.startDate);
+        if (opts.endDate) arr = arr.filter(b=>b.date<=opts.endDate);
+        if (opts.search) arr = arr.filter(b=> (b.title||"").toLowerCase().includes(opts.search) || (b.author||"").toLowerCase().includes(opts.search));
+        let headers = ["Title","Author","Language","Unit","Grade","Qty","Purchase Link","Date"];
+        downloadCSV(arrayToCSV(arr, headers), "Books_Inventory.csv");
+        filesExported++;
+      }
+      document.getElementById('reportMsg').innerHTML = `<span class="success-msg">Exported ${filesExported} CSV file${filesExported>1?'s':''}.</span>`;
     };
 
-    // --- EMAIL REPORT ---
     document.getElementById('emailReportBtn').onclick = function() {
       let recipient = document.getElementById('reportRecipient').value.trim();
       if (!recipient) {
@@ -991,7 +950,6 @@
       }
       let subject = "Inventory Report";
       let html = document.getElementById('reportPreview').innerHTML;
-      // Use FormSubmit (send to recipient)
       const form = document.createElement('form');
       form.action = `https://formsubmit.co/${recipient}`;
       form.method = "POST";
@@ -1027,7 +985,6 @@
       setTimeout(()=>document.getElementById('reportMsg').textContent="",3000);
     };
 
-    // --- INITIAL LOAD ---
     async function initialLoad() {
       await loadOrders();
       await loadSupplies();
