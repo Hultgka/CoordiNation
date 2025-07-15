@@ -496,7 +496,7 @@
         await setDoc(doc(db, "admins", cred.user.uid), {
           email,
           displayName: name,
-          orgId,
+          orgId: orgId, // <-- Make sure orgId is saved!
           role: "admin",
           createdAt: new Date().toISOString()
         });
@@ -510,7 +510,7 @@
 
     // Show admin dashboard modal
     async function showAdminDashboard(email, uid, adminData) {
-      adminDashboardBg.style.display = 'flex';
+      document.getElementById('adminDashboardBg').style.display = 'flex';
       document.getElementById('adminGreeting').textContent = `Welcome, ${adminData.displayName || email}!`;
 
       // Only show add admin form for super admin
@@ -564,7 +564,6 @@
     const closeDashboardBtn = document.getElementById('closeDashboardBtn');
     closeDashboardBtn.onclick = () => { adminDashboardBg.style.display = 'none'; };
 
- 
     // async function ensureSuperAdmin() {
     //   const email = "karissa.hultgren@gmail.com";
     //   const superAdminDocRef = doc(db, "admins", "<SUPER_ADMIN_UID>");
