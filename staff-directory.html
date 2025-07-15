@@ -166,7 +166,7 @@
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
     import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
-    import { getFirestore, doc, getDoc, collection, getDocs, setDoc, addDoc, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
+    import { getFirestore, doc, getDoc, collection, getDocs, setDoc, addDoc, updateDoc, deleteDoc, query, where } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
 
     // Your Firebase config
     const firebaseConfig = {
@@ -184,8 +184,20 @@
     const db = getFirestore(app);
 
     let currentAdmin = null;
+    let currentAdminOrgId = null;
     let allStaff = [];
     let sortState = { field: "name", dir: "asc" };
+
+    // Utility: Get Current Admin OrgId
+    async function getCurrentAdminOrgId() {
+      const user = auth.currentUser;
+      if (!user) return null;
+      const adminDocSnap = await getDoc(doc(db, "admins", user.uid));
+      if (adminDocSnap.exists()) {
+        return adminDocSnap.data().orgId;
+      }
+      return null;
+    }
 
     // Only allow admins
     onAuthStateChanged(auth, async (user) => {
@@ -201,6 +213,7 @@
         return;
       }
       currentAdmin = adminDocSnap.data();
+      currentAdminOrgId = await getCurrentAdminOrgId();
       renderAdminInfo(user.email, currentAdmin.displayName);
       await loadStaff();
       renderStaffTable();
@@ -213,7 +226,8 @@
 
     // Staff CRUD
     async function loadStaff() {
-      const staffSnap = await getDocs(collection(db, "staff"));
+      if (!currentAdminOrgId) { allStaff = []; return; }
+      const staffSnap = await getDocs(query(collection(db, "staff"), where("orgId", "==", currentAdminOrgId)));
       allStaff = [];
       staffSnap.forEach(docSnap => {
         allStaff.push({ ...docSnap.data(), id: docSnap.id });
@@ -227,9 +241,9 @@
       const roleFilter = document.getElementById('filterRole').value.trim().toLowerCase();
       const emailFilter = document.getElementById('filterEmail').value.trim().toLowerCase();
 
-      if (nameFilter) filtered = filtered.filter(s => s.name.toLowerCase().includes(nameFilter));
-      if (roleFilter) filtered = filtered.filter(s => s.role.toLowerCase().includes(roleFilter));
-      if (emailFilter) filtered = filtered.filter(s => s.email.toLowerCase().includes(emailFilter));
+      if (nameFilter) filtered = filtered.filter(s => (s.name||"").toLowerCase().includes(nameFilter));
+      if (roleFilter) filtered = filtered.filter(s => (s.role||"").toLowerCase().includes(roleFilter));
+      if (emailFilter) filtered = filtered.filter(s => (s.email||"").toLowerCase().includes(emailFilter));
 
       filtered.sort((a, b) => {
         let fa = a[sortState.field] ? a[sortState.field].toLowerCase() : "";
@@ -248,9 +262,9 @@
       staffList.forEach(data => {
         const tr = document.createElement("tr");
         tr.innerHTML = `
-          <td>${data.name}</td>
-          <td>${data.role}</td>
-          <td>${data.email}</td>
+          <td>${data.name||""}</td>
+          <td>${data.role||""}</td>
+          <td>${data.email||""}</td>
           <td>
             <button class="edit-btn" data-id="${data.id}">Edit</button>
             <button class="delete-btn" data-id="${data.id}">Delete</button>
@@ -348,9 +362,9 @@
 
       try {
         if (editingStaffId) {
-          await updateDoc(doc(db, "staff", editingStaffId), { name, role, email });
+          await updateDoc(doc(db, "staff", editingStaffId), { name, role, email, orgId: currentAdminOrgId });
         } else {
-          await addDoc(collection(db, "staff"), { name, role, email });
+          await addDoc(collection(db, "staff"), { name, role, email, orgId: currentAdminOrgId });
         }
         staffModalBg.style.display = 'none';
         await loadStaff();
