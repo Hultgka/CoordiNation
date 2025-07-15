@@ -4,7 +4,6 @@
   <meta charset="UTF-8">
   <title>CoordiNation - Report Generator</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="Content-Security-Policy" content="script-src 'self' https://apis.google.com https://accounts.google.com https://www.gstatic.com; object-src 'none';">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
   <style>
     body { font-family: 'Inter', Arial, sans-serif; background: linear-gradient(135deg, #f8fafc, #e3e7ee 60%); margin: 0; min-height: 100vh; color: #222; }
@@ -39,6 +38,7 @@
     .flex-gap { gap: 12px;}
     .multi-select-box { min-width: 190px; min-height: 2.5em; max-width: 360px;}
     .toggle-wrap { display: flex; align-items: center; margin-bottom: 8px; gap: 8px;}
+    .error { color: #e11d48; font-weight: bold; }
     @media (max-width: 900px) { .container { max-width: 99vw; } }
     @media (max-width: 600px) { .container { padding: 8px 1px; } header { font-size: 1.1em; } .section-title { font-size: 1em; } .signature-block { gap: 10px; flex-direction: column; } .signature-line { width: 90vw; } .multi-select-box { min-width: 90vw; } .navbar { position:static; display:block; margin:0 auto; } }
   </style>
@@ -88,6 +88,7 @@
         <button type="submit" class="btn">Export as CSV</button>
         <span id="exportMsg"></span>
       </form>
+      <div id="loadError" class="error"></div>
     </div>
     <div class="section-box">
       <div class="section-title">Build & Preview Custom Report (for One Staff)</div>
@@ -140,103 +141,69 @@
     const db = getFirestore(app);
 
     let staffList = [];
+    let staffEmailMap = {};
     let allObservations = [];
     let allMeetings = [];
     let allProblems = [];
-    let staffEmailMap = {};
 
-    // Normalize observation data for display/export
-    function normalizeObservation(d) {
-      return {
-        _docId: d._docId,
-        staffName: d.staffName || d.observedStaff || d.staff || "",
-        date: d.date || d.observationDate || d.timestamp?.substring(0,10) || "",
-        observerName: d.observerName || "",
-        stars: Array.isArray(d.stars) ? d.stars : (typeof d.stars === "string" ? [d.stars] : []),
-        wish: d.wish || "",
-        lessonPlanSubmitted: d.lessonPlanSubmitted || false,
-        lessonPlanLink: d.lessonPlanLink || "",
-        notes: d.notes || d.observationNotes || "",
-      };
-    }
-    // Normalize meeting data for display/export
-    function normalizeMeeting(d) {
-      return {
-        _docId: d._docId,
-        meetingDate: d.meetingDate || d.date || d.meetingTimestamp?.substring(0,10) || "",
-        meetingTime: d.meetingTime || "",
-        meetingTitle: d.meetingTitle || "",
-        staffInvolved: Array.isArray(d.staffInvolved) ? d.staffInvolved : (d.participants ? d.participants : []),
-        discussions: Array.isArray(d.discussions) ? d.discussions : [],
-        nextSteps: Array.isArray(d.nextSteps) ? d.nextSteps : [],
-        attachmentURLs: Array.isArray(d.attachmentURLs) ? d.attachmentURLs : [],
-        linkedObservations: Array.isArray(d.linkedObservations) ? d.linkedObservations : [],
-        notes: d.notes || "",
-      };
-    }
-    // Normalize problem data for display/export
-    function normalizeProblem(d) {
-      return {
-        _docId: d._docId,
-        problemDate: d.problemDate || d.date || d.createdAt?.substring(0,10) || "",
-        problemTitle: d.problemTitle || "",
-        problemLocation: d.problemLocation || "",
-        staffInvolved: Array.isArray(d.staffInvolved) ? d.staffInvolved : (d.staff ? d.staff : []),
-        problemPoints: Array.isArray(d.problemPoints) ? d.problemPoints : [],
-        childrenInvolved: d.childrenInvolved || false,
-        childrenNames: Array.isArray(d.childrenNames) ? d.childrenNames : [],
-        attachmentURLs: Array.isArray(d.attachmentURLs) ? d.attachmentURLs : [],
-        nextSteps: Array.isArray(d.nextSteps) ? d.nextSteps : [],
-        status: d.status || "open",
-        notes: d.notes || "",
-      };
+    function getStaffName(d) {
+      return d.displayName || d.name || d.email || d.id || "";
     }
 
-    // Populate staff dropdowns
-    async function populateStaffDropdowns() {
-      const staffSnap = await getDocs(collection(db, "staff"));
-      staffList = [];
-      staffEmailMap = {};
-      let opts = `<option value="">Select staff...</option>`;
-      let multi = "";
-      staffSnap.forEach(docSnap => {
-        const data = docSnap.data();
-        let name = data.displayName || data.name || data.email || docSnap.id;
-        staffList.push({ name, email: data.email || "" });
-        staffEmailMap[name] = data.email || "";
-        opts += `<option value="${name}">${name}</option>`;
-        multi += `<option value="${name}">${name}</option>`;
-      });
-      document.getElementById('exportStaffSel').innerHTML = multi;
-      document.getElementById('reportStaffSel').innerHTML = opts;
-    }
-    await populateStaffDropdowns();
+    async function loadStaffDropdowns() {
+      try {
+        const staffSnap = await getDocs(collection(db, "staff"));
+        staffList = [];
+        staffEmailMap = {};
+        let opts = "";
+        staffSnap.forEach(docSnap => {
+          const d = docSnap.data();
+          const name = getStaffName(d);
+          if (name) {
+            staffList.push({ id: docSnap.id, ...d, displayName: name });
+            staffEmailMap[name] = d.email || "";
+            opts += `<option value="${name}">${name}</option>`;
+          }
+        });
 
-    // Fetch all data
+        document.getElementById('exportStaffSel').innerHTML = opts;
+        document.getElementById('reportStaffSel').innerHTML = `<option value="">Select staff...</option>` + opts;
+
+        if (staffList.length === 0) {
+          document.getElementById('loadError').innerText = 
+            "No staff found in Firestore. Please add staff to the 'staff' collection.";
+        } else {
+          document.getElementById('loadError').innerText = "";
+        }
+      } catch (err) {
+        document.getElementById('loadError').innerText = 
+          "Error loading staff from Firestore: " + err.message;
+      }
+    }
+
+    // Observations, Meetings, Problems: minimal stub for preview
     async function fetchAllData() {
-      // Observations
       const obsSnap = await getDocs(collection(db, "observations"));
       allObservations = [];
       obsSnap.forEach(docSnap => {
         let d = docSnap.data(); d._docId = docSnap.id;
-        allObservations.push(normalizeObservation(d));
+        allObservations.push(d);
       });
-      // Meetings
       const meetSnap = await getDocs(collection(db, "meetings"));
       allMeetings = [];
       meetSnap.forEach(docSnap => {
         let d = docSnap.data(); d._docId = docSnap.id;
-        allMeetings.push(normalizeMeeting(d));
+        allMeetings.push(d);
       });
-      // Problems
       const probSnap = await getDocs(collection(db, "problems"));
       allProblems = [];
       probSnap.forEach(docSnap => {
         let d = docSnap.data(); d._docId = docSnap.id;
-        allProblems.push(normalizeProblem(d));
+        allProblems.push(d);
       });
     }
-    await fetchAllData();
+
+    await loadStaffDropdowns();
 
     document.getElementById('exportAllStaff').onchange = function() {
       document.getElementById('exportStaffSel').disabled = this.checked;
@@ -260,139 +227,7 @@
       return keywords.some(k => text.includes(k));
     }
 
-    function buildReportHTML(staffName, opts) {
-      let html = `<div style="font-size:1.25em;font-weight:600;text-align:center;margin-bottom:10px;">Report for ${staffName}</div>`;
-      let start = opts.startDate, end = opts.endDate, keywords = (opts.keywords||"").toLowerCase().split(/[, ]+/).filter(Boolean);
-
-      // Observations
-      if (opts.obs) {
-        let obs = allObservations.filter(o => o.staffName && o.staffName.toLowerCase() === staffName.toLowerCase())
-          .filter(o => (!start || dateInRange(o.date, start, end)))
-          .filter(o => keywordMatch(o, keywords));
-        html += `<div style="font-size:1.09em;font-weight:600;margin:9px 0 5px 0;">Observations</div>`;
-        if (obs.length === 0) html += `<div style="color:#888;">No observations.</div>`;
-        obs.forEach(o => {
-          html += `<div style="margin-bottom:7px;border-bottom:1px solid #eee;padding-bottom:7px;">
-            <b>Date:</b> ${o.date || ''}<br>
-            <b>Observer:</b> ${o.observerName || ''}<br>
-            <b>Stars:</b> ${o.stars && o.stars.length ? o.stars.join(", ") : ""}<br>
-            <b>Wish:</b> ${o.wish || ''}<br>
-            <b>Lesson Plan:</b> ${o.lessonPlanSubmitted ? `<a href="${o.lessonPlanLink}" target="_blank">View Link</a>` : 'Not submitted'}<br>
-          </div>`;
-        });
-      }
-      // Meetings
-      if (opts.meet) {
-        let meets = allMeetings.filter(m => Array.isArray(m.staffInvolved) && m.staffInvolved.map(n=>n.toLowerCase()).includes(staffName.toLowerCase()))
-          .filter(m => (!start || dateInRange(m.meetingDate, start, end)))
-          .filter(m => keywordMatch(m, keywords));
-        html += `<div style="font-size:1.09em;font-weight:600;margin:9px 0 5px 0;">Meetings</div>`;
-        if (meets.length === 0) html += `<div style="color:#888;">No meetings.</div>`;
-        meets.forEach(m => {
-          html += `<div style="margin-bottom:7px;border-bottom:1px solid #eee;padding-bottom:7px;">
-            <b>Date:</b> ${m.meetingDate||''} <b>Time:</b> ${m.meetingTime||''}<br>
-            <b>Title:</b> ${m.meetingTitle||''}<br>
-            <b>Participants:</b> ${Array.isArray(m.staffInvolved)? m.staffInvolved.join(", ") : ""}<br>`;
-          // Discussions
-          if (m.discussions && m.discussions.length) {
-            html += `<b>Discussions:</b><ul>`;
-            m.discussions.forEach(d => html += `<li><b>${d.heading}:</b> ${d.topic}</li>`);
-            html += `</ul>`;
-          }
-          // Next Steps
-          if (m.nextSteps && m.nextSteps.length) {
-            html += `<b>Next Steps:</b><ul>`;
-            m.nextSteps.forEach(n => html += `<li><b>Step:</b> ${n.desc} <b>Responsible:</b> ${Array.isArray(n.responsible) ? n.responsible.join(", ") : ""}</li>`);
-            html += `</ul>`;
-          }
-          html += `</div>`;
-        });
-      }
-      // Problems
-      if (opts.prob) {
-        let probs = allProblems.filter(p => Array.isArray(p.staffInvolved) && p.staffInvolved.map(n=>n.toLowerCase()).includes(staffName.toLowerCase()))
-          .filter(p => (!start || dateInRange(p.problemDate, start, end)))
-          .filter(p => keywordMatch(p, keywords));
-        html += `<div style="font-size:1.09em;font-weight:600;margin:9px 0 5px 0;">Problems</div>`;
-        if (probs.length === 0) html += `<div style="color:#888;">No problems.</div>`;
-        probs.forEach(p => {
-          html += `<div style="margin-bottom:7px;border-bottom:1px solid #eee;padding-bottom:7px;">
-            <b>Date:</b> ${p.problemDate||''}<br>
-            <b>Title:</b> ${p.problemTitle||''}<br>
-            <b>Location:</b> ${p.problemLocation||''}<br>
-            <b>Status:</b> ${p.status||''}<br>
-            <b>Points:</b> ${Array.isArray(p.problemPoints) ? p.problemPoints.join("; ") : ""}<br>
-            <b>Children:</b> ${p.childrenInvolved ? (Array.isArray(p.childrenNames) ? p.childrenNames.join(", ") : "") : "None"}<br>
-          </div>`;
-        });
-      }
-      // Custom Notes
-      if (opts.notes && opts.notesText) {
-        html += `<div style="font-size:1.09em;font-weight:600;margin:9px 0 5px 0;">Custom Notes</div>`;
-        html += `<div>${opts.notesText.replace(/\n/g, '<br>')}</div>`;
-      }
-      if (opts.sigStaff || opts.sigAdmin) {
-        html += `<div class="signature-block">`;
-        if (opts.sigStaff) html += `<div><span class="signature-line"></span>Staff Signature</div>`;
-        if (opts.sigAdmin) html += `<div><span class="signature-line"></span>Admin Signature</div>`;
-        html += `</div>`;
-      }
-      return html;
-    }
-
-    document.getElementById('refreshPreviewBtn').onclick = function() {
-      const staffName = document.getElementById('reportStaffSel').value;
-      if (!staffName) {
-        document.getElementById('reportPreview').innerHTML = "<i>Please select a teacher/staff member.</i>";
-        return;
-      }
-      const opts = {
-        obs: Array.from(document.querySelectorAll('input[name="reportType"][value="observations"]')).some(x=>x.checked),
-        meet: Array.from(document.querySelectorAll('input[name="reportType"][value="meetings"]')).some(x=>x.checked),
-        prob: Array.from(document.querySelectorAll('input[name="reportType"][value="problems"]')).some(x=>x.checked),
-        notes: document.getElementById('includeNotes').checked,
-        notesText: document.getElementById('customNotes').value,
-        sigStaff: document.getElementById('sigStaff').checked,
-        sigAdmin: document.getElementById('sigAdmin').checked,
-        startDate: document.getElementById('reportStartDate').value,
-        endDate: document.getElementById('reportEndDate').value,
-        keywords: document.getElementById('reportKeywords').value
-      };
-      document.getElementById('reportPreview').innerHTML = buildReportHTML(staffName, opts);
-    };
-
-    document.getElementById('reportStaffSel').onchange = function() {
-      document.getElementById('refreshPreviewBtn').click();
-    };
-
-    document.getElementById('printBtn').onclick = function() {
-      const content = document.getElementById('reportPreview').innerHTML;
-      const w = window.open('', '', 'width=800,height=900');
-      w.document.write(`<html><head><title>CoordiNation Report</title>
-      <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
-      <style>
-      body { font-family: 'Inter', Arial, sans-serif; margin:0; color: #222; }
-      .signature-line { border-bottom: 1.7px solid #444;width:220px;height:18px;margin-bottom:4px;display:block;}
-      .signature-block { margin-top:30px;display:flex;gap:60px;font-size:1.1em;}
-      </style>
-      </head><body>${content}</body></html>`);
-      w.document.close();
-      w.focus();
-      setTimeout(()=>w.print(), 300);
-    };
-
-    document.getElementById('mailtoBtn').onclick = function() {
-      const staffName = document.getElementById('reportStaffSel').value;
-      if (!staffName) { alert("Please select a teacher first."); return; }
-      let email = staffEmailMap[staffName] || "";
-      let subject = encodeURIComponent("CoordiNation Report");
-      let body = encodeURIComponent(
-        `Dear ${staffName},\n\nPlease find attached your current report from CoordiNation.\n\n(Download the PDF using the Print button first, then attach it here.)\n\nBest regards,\nAdmin`
-      );
-      window.location.href = `mailto:${email}?subject=${subject}&body=${body}`;
-    };
-
-    // --- CSV EXPORT ---
+    // CSV Export logic
     function toCSV(arr, headers) {
       const escape = val =>
         typeof val === "string"
@@ -402,6 +237,8 @@
       arr.forEach(obj => {
         out.push(headers.map(h => {
           let v = obj[h];
+          if (h === "staffInvolved" && Array.isArray(v)) return escape(v.join(", "));
+          if (h === "staffName" && typeof v === "undefined" && Array.isArray(obj["staffInvolved"])) return escape(obj["staffInvolved"].join(", "));
           if (Array.isArray(v)) return escape(v.join(", "));
           if (typeof v === 'object' && v !== null) return escape(JSON.stringify(v));
           return escape(v);
@@ -409,7 +246,15 @@
       });
       return out.join("\r\n");
     }
-
+    function downloadFile(data, filename, type = "text/csv") {
+      const blob = new Blob([data], { type });
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
     function filterByStaff(arr, staffNames, staffField, involvedField) {
       if (!staffNames || staffNames.length === 0) return arr;
       staffNames = staffNames.map(s => s.toLowerCase());
@@ -436,21 +281,11 @@
       return arr.filter(obj => keywordMatch(obj, keywords));
     }
 
-    function downloadFile(data, filename, type = "text/csv") {
-      const blob = new Blob([data], { type });
-      const link = document.createElement("a");
-      link.href = URL.createObjectURL(blob);
-      link.download = filename;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-    }
-
     document.getElementById('exportForm').onsubmit = async function(e) {
       e.preventDefault();
       document.getElementById('exportMsg').innerHTML = "";
+      await fetchAllData();
       try {
-        await fetchAllData();
         const selectedTypes = Array.from(document.querySelectorAll('input[name="dataType"]:checked')).map(x=>x.value);
         if (selectedTypes.length === 0) throw new Error("Select at least one data type.");
         let allStaff = document.getElementById('exportAllStaff').checked;
@@ -494,7 +329,6 @@
             exported.push("Problems");
           }
         } else {
-          // Combine all selected types into one CSV
           let rows = [];
           let headers = ["Type", "ID", "Staff", "Date", "Title", "Location", "Notes", "Extra1", "Extra2"];
           rows.push(headers);
@@ -549,13 +383,53 @@
       }
     };
 
+    document.getElementById('refreshPreviewBtn').onclick = function() {
+      const staffName = document.getElementById('reportStaffSel').value;
+      if (!staffName) {
+        document.getElementById('reportPreview').innerHTML = "<i>Please select a teacher/staff member.</i>";
+        return;
+      }
+      document.getElementById('reportPreview').innerHTML = `<b>Report for:</b> ${staffName}`;
+    };
+
+    document.getElementById('reportStaffSel').onchange = function() {
+      document.getElementById('refreshPreviewBtn').click();
+    };
+
+    document.getElementById('printBtn').onclick = function() {
+      const content = document.getElementById('reportPreview').innerHTML;
+      const w = window.open('', '', 'width=800,height=900');
+      w.document.write(`<html><head><title>CoordiNation Report</title>
+      <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+      <style>
+      body { font-family: 'Inter', Arial, sans-serif; margin:0; color: #222; }
+      .signature-line { border-bottom: 1.7px solid #444;width:220px;height:18px;margin-bottom:4px;display:block;}
+      .signature-block { margin-top:30px;display:flex;gap:60px;font-size:1.1em;}
+      </style>
+      </head><body>${content}</body></html>`);
+      w.document.close();
+      w.focus();
+      setTimeout(()=>w.print(), 300);
+    };
+
+    document.getElementById('mailtoBtn').onclick = function() {
+      const staffName = document.getElementById('reportStaffSel').value;
+      if (!staffName) { alert("Please select a teacher first."); return; }
+      let email = staffEmailMap[staffName] || "";
+      let subject = encodeURIComponent("CoordiNation Report");
+      let body = encodeURIComponent(
+        `Dear ${staffName},\n\nPlease find attached your current report from CoordiNation.\n\n(Download the PDF using the Print button first, then attach it here.)\n\nBest regards,\nAdmin`
+      );
+      window.location.href = `mailto:${email}?subject=${subject}&body=${body}`;
+    };
+
     setTimeout(function(){
       const sel = document.getElementById('reportStaffSel');
       if (sel && sel.options.length > 1) {
         sel.selectedIndex = 1;
         document.getElementById('refreshPreviewBtn').click();
       }
-    }, 500);
+    }, 700);
   </script>
 </body>
 </html>
