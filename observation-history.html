@@ -107,6 +107,29 @@
     .back-link:hover {
       color: #4f46e5;
     }
+    .edit-btn, .delete-btn {
+      background: #4f46e5;
+      color: #fff;
+      border: none;
+      border-radius: 7px;
+      padding: 5px 14px;
+      font-size: 0.98em;
+      cursor: pointer;
+      font-weight: 600;
+      margin-top: 3px;
+      margin-bottom: 2px;
+      margin-right: 5px;
+      box-shadow: 0 2px 8px rgba(52, 92, 172, 0.10);
+      transition: background 0.2s;
+      display: inline-block;
+    }
+    .edit-btn:hover, .delete-btn:hover {
+      background: #2563eb;
+    }
+    .edit-form-bg {position:fixed; left:0;top:0;right:0;bottom:0; z-index:1000; background:rgba(0,0,0,0.18);}
+    .edit-form-modal {background:#fff; border-radius:12px; max-width:410px; margin:100px auto 0 auto; border:1px solid #dbeafe; padding:18px 22px; box-shadow:0 6px 30px rgba(54,76,160,0.10);}
+    .edit-form-modal label {margin-right:5px;}
+    .edit-form-modal input, .edit-form-modal textarea {margin:0 0 10px 0;}
     @media (max-width: 800px) {
       .history-container { max-width: 99vw; }
       table { font-size: 0.95em; }
@@ -146,6 +169,7 @@
             <th>Stars</th>
             <th>Wish</th>
             <th>Lesson Plan</th>
+            <th>Action</th>
           </tr>
         </thead>
         <tbody></tbody>
@@ -153,12 +177,11 @@
     </div>
     <a class="back-link" href="observational-form.html">&larr; Back to Observational Form</a>
   </div>
-  <!-- Firebase JS SDK -->
+  <div id="editModalBg" style="display:none"></div>
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
-    import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
+    import { getFirestore, collection, getDocs, doc, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
 
-    // Your Firebase config
     const firebaseConfig = {
       apiKey: "AIzaSyDXhHCNUsQoQ6SRYWYhPEPI811-2xTnlpE",
       authDomain: "school-coordination.firebaseapp.com",
@@ -173,7 +196,6 @@
 
     let allObservations = [];
 
-    // Helper date compare (YYYY-MM-DD)
     function isDateInRange(dateStr, startStr, endStr) {
       if (!dateStr) return false;
       const date = new Date(dateStr);
@@ -185,7 +207,6 @@
       return dateStr === targetStr;
     }
 
-    // Render Table
     function renderTable() {
       const table = document.getElementById('observationTable');
       const tbody = table.querySelector('tbody');
@@ -197,12 +218,9 @@
       const endDateFilter = document.getElementById('endDateFilter').value;
 
       let filtered = allObservations.filter(obs => {
-        // Staff name filter
         const staffName = (obs.observedStaff || "").toLowerCase();
         if (staffFilter && !staffName.includes(staffFilter)) return false;
-        // Specific date filter
         if (dateFilter && obs.observationDate !== dateFilter) return false;
-        // Date range filter
         if ((startDateFilter || endDateFilter) && !isDateInRange(obs.observationDate, startDateFilter, endDateFilter)) return false;
         return true;
       });
@@ -239,11 +257,85 @@
             <td>${starsCell}</td>
             <td>${wishCell}</td>
             <td>${lessonPlanCell}</td>
+            <td>
+              <button class="edit-btn" data-id="${obs._docId}">Edit</button>
+              <button class="delete-btn" data-id="${obs._docId}">Delete</button>
+            </td>
           `;
           tbody.appendChild(tr);
         });
       }
     }
+
+    // Edit Modal
+    function editObservationModal(docId) {
+      const obs = allObservations.find(o => o._docId === docId);
+      if (!obs) return alert("Observation not found.");
+      const modalBg = document.getElementById("editModalBg");
+      let formHtml = `<div class="edit-form-bg" id="editModalBgInner">
+        <div class="edit-form-modal">
+          <div style="font-size:1.13em;font-weight:600;margin-bottom:9px;">Edit Observation</div>
+          <form id="editObservationForm">
+            <label>Date:<br><input type="date" name="observationDate" value="${(obs.observationDate||'').substr(0,10)}"></label><br>
+            <label>Staff Name:<br><input type="text" name="observedStaff" value="${obs.observedStaff||''}"></label><br>
+            <label>Observer:<br><input type="text" name="observerName" value="${obs.observerName||''}"></label><br>
+            <label>Stars (comma-separated):<br><textarea name="stars">${Array.isArray(obs.stars)?obs.stars.join(", "):''}</textarea></label><br>
+            <label>Wish:<br><input type="text" name="wish" value="${obs.wish||''}"></label><br>
+            <label>Lesson Plan Submitted:
+              <select name="lessonPlanSubmitted">
+                <option value="true" ${obs.lessonPlanSubmitted?'selected':''}>Yes</option>
+                <option value="false" ${!obs.lessonPlanSubmitted?'selected':''}>No</option>
+              </select>
+            </label><br>
+            <label>Lesson Plan Link:<br><input type="text" name="lessonPlanLink" value="${obs.lessonPlanLink||''}"></label><br>
+            <button type="submit" class="btn" style="margin-right:8px;">Save</button>
+            <button type="button" class="btn" id="cancelEditBtn">Cancel</button>
+          </form>
+        </div>
+      </div>`;
+      modalBg.innerHTML = formHtml;
+      modalBg.style.display = "block";
+      document.getElementById("cancelEditBtn").onclick = ()=>{modalBg.style.display="none";};
+      document.getElementById("editObservationForm").onsubmit = async function(e){
+        e.preventDefault();
+        let form = this;
+        let updates = {
+          observationDate: form.observationDate.value,
+          observedStaff: form.observedStaff.value,
+          observerName: form.observerName.value,
+          stars: form.stars.value.split(",").map(s=>s.trim()).filter(Boolean),
+          wish: form.wish.value,
+          lessonPlanSubmitted: form.lessonPlanSubmitted.value==="true",
+          lessonPlanLink: form.lessonPlanLink.value
+        };
+        try {
+          await updateDoc(doc(db, "observations", docId), updates);
+          modalBg.style.display = "none";
+          await loadObservations();
+        } catch (err) {
+          alert("Update failed.");
+        }
+      };
+    }
+
+    // Delete logic
+    document.addEventListener('click', async function(e) {
+      if (e.target.classList.contains('edit-btn')) {
+        const docId = e.target.getAttribute('data-id');
+        editObservationModal(docId);
+      }
+      if (e.target.classList.contains('delete-btn')) {
+        const docId = e.target.getAttribute('data-id');
+        if (confirm("Are you sure you want to delete this observation?")) {
+          try {
+            await deleteDoc(doc(db, "observations", docId));
+            await loadObservations();
+          } catch (err) {
+            alert("Delete failed.");
+          }
+        }
+      }
+    });
 
     // Load Observations
     async function loadObservations() {
@@ -254,8 +346,10 @@
       allObservations = [];
       try {
         const snap = await getDocs(collection(db, "observations"));
-        snap.forEach(doc => {
-          allObservations.push(doc.data());
+        snap.forEach(docSnap => {
+          let data = docSnap.data();
+          data._docId = docSnap.id;
+          allObservations.push(data);
         });
         renderTable();
       } catch (err) {
@@ -264,10 +358,8 @@
       }
     }
 
-    // Filter Events
     document.getElementById('staffFilter').addEventListener('input', renderTable);
     document.getElementById('dateFilter').addEventListener('change', function() {
-      // Clear date range if specific date selected
       if (this.value) {
         document.getElementById('startDateFilter').value = '';
         document.getElementById('endDateFilter').value = '';
@@ -275,14 +367,12 @@
       renderTable();
     });
     document.getElementById('startDateFilter').addEventListener('change', function() {
-      // Clear specific date if range selected
       if (this.value || document.getElementById('endDateFilter').value) {
         document.getElementById('dateFilter').value = '';
       }
       renderTable();
     });
     document.getElementById('endDateFilter').addEventListener('change', function() {
-      // Clear specific date if range selected
       if (this.value || document.getElementById('startDateFilter').value) {
         document.getElementById('dateFilter').value = '';
       }
