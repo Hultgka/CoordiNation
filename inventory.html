@@ -484,8 +484,11 @@
   <!-- FIREBASE/JS LOGIC -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
-    import { getFirestore, collection, addDoc, getDocs, updateDoc, deleteDoc, doc } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
-    // Firebase config
+    import { getFirestore, collection, addDoc, getDocs, updateDoc, deleteDoc, doc, query, where } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
+    import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
+    import { getDoc } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
+
+    // Your Firebase config
     const firebaseConfig = {
       apiKey: "AIzaSyDXhHCNUsQoQ6SRYWYhPEPI811-2xTnlpE",
       authDomain: "school-coordination.firebaseapp.com",
@@ -494,15 +497,48 @@
       messagingSenderId: "177630449005",
       appId: "1:177630449005:web:50f8bd0ff1244d53c35e64"
     };
+
+    // Initialize Firebase and Firestore
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
+    const auth = getAuth(app);
 
     let supplies = [];
     let books = [];
     let orders = [];
+    let currentUserOrgId = null;
+
+    // Utility: Get Current User OrgId
+    async function getCurrentUserOrgId() {
+      const user = auth.currentUser;
+      if (!user) return null;
+      const userDoc = await getDoc(doc(db, "admins", user.uid));
+      if (userDoc.exists()) {
+        return userDoc.data().orgId;
+      }
+      return null;
+    }
+
+    // Auth state management to get orgId before loading any data
+    async function waitForAuthAndOrgId() {
+      return new Promise(resolve => {
+        onAuthStateChanged(auth, async (user) => {
+          if (user) {
+            currentUserOrgId = await getCurrentUserOrgId();
+            resolve();
+          } else {
+            // No user logged in, use a modal or redirect prompt if you want
+            currentUserOrgId = null;
+            resolve();
+          }
+        });
+      });
+    }
 
     async function loadSupplies() {
-      const snap = await getDocs(collection(db, "inventory_supplies"));
+      if (!currentUserOrgId) { supplies = []; return; }
+      const q = query(collection(db, "inventory_supplies"), where("orgId", "==", currentUserOrgId));
+      const snap = await getDocs(q);
       supplies = [];
       snap.forEach(docSnap => {
         let d = docSnap.data(); d._docId = docSnap.id;
@@ -510,7 +546,9 @@
       });
     }
     async function loadBooks() {
-      const snap = await getDocs(collection(db, "inventory_books"));
+      if (!currentUserOrgId) { books = []; return; }
+      const q = query(collection(db, "inventory_books"), where("orgId", "==", currentUserOrgId));
+      const snap = await getDocs(q);
       books = [];
       snap.forEach(docSnap => {
         let d = docSnap.data(); d._docId = docSnap.id;
@@ -518,7 +556,9 @@
       });
     }
     async function loadOrders() {
-      const snap = await getDocs(collection(db, "orders"));
+      if (!currentUserOrgId) { orders = []; return; }
+      const q = query(collection(db, "orders"), where("orgId", "==", currentUserOrgId));
+      const snap = await getDocs(q);
       orders = [];
       snap.forEach(docSnap => {
         let d = docSnap.data();
@@ -555,7 +595,8 @@
 
       try {
         await addDoc(collection(db, "inventory_supplies"), {
-          name, category: cat, qty, unit, notes, purchaseLink: link, date
+          name, category: cat, qty, unit, notes, purchaseLink: link, date,
+          orgId: currentUserOrgId // <-- ADDED orgId field!
         });
         document.getElementById('supplyMsg').textContent = "Saved!";
         await loadSupplies();
@@ -580,7 +621,8 @@
 
       try {
         await addDoc(collection(db, "inventory_books"), {
-          title, author, language: lang, unit, grade, qty, purchaseLink: link, date
+          title, author, language: lang, unit, grade, qty, purchaseLink: link, date,
+          orgId: currentUserOrgId // <-- ADDED orgId field!
         });
         document.getElementById('bookMsg').textContent = "Saved!";
         await loadBooks();
@@ -734,7 +776,8 @@
           unit:document.getElementById('editSupplyUnit').value.trim(),
           notes:document.getElementById('editSupplyNotes').value.trim(),
           purchaseLink:document.getElementById('editSupplyLink').value.trim(),
-          date:document.getElementById('editSupplyDate').value.trim()
+          date:document.getElementById('editSupplyDate').value.trim(),
+          orgId: currentUserOrgId // <-- Ensure orgId stays with updates
         });
         await loadSupplies(); renderSupplyTable();
       });
@@ -762,7 +805,8 @@
           grade:document.getElementById('editBookGrade').value.trim(),
           qty:Number(document.getElementById('editBookQty').value),
           purchaseLink:document.getElementById('editBookLink').value.trim(),
-          date:document.getElementById('editBookDate').value.trim()
+          date:document.getElementById('editBookDate').value.trim(),
+          orgId: currentUserOrgId // <-- Ensure orgId stays with updates
         });
         await loadBooks(); renderBookTable();
       });
@@ -790,7 +834,8 @@
             unit:row["Unit"]||"",
             notes:row["Notes"]||"",
             purchaseLink:row["Purchase Link"]||row["Link"]||"",
-            date:row["Date Added"]||row["Date"]||(new Date()).toISOString().slice(0,10)
+            date:row["Date Added"]||row["Date"]||(new Date()).toISOString().slice(0,10),
+            orgId: currentUserOrgId // <-- ADDED orgId to bulk upload too!
           });
         });
         setTimeout(async()=>{await loadSupplies();renderSupplyTable();},1500);
@@ -815,7 +860,8 @@
             grade:row["Grade"]||"",
             qty:Number(row["Quantity"]||row["Qty"]||0),
             purchaseLink:row["Purchase Link"]||row["Link"]||"",
-            date:row["Date Added"]||row["Date"]||(new Date()).toISOString().slice(0,10)
+            date:row["Date Added"]||row["Date"]||(new Date()).toISOString().slice(0,10),
+            orgId: currentUserOrgId // <-- ADDED orgId to bulk upload too!
           });
         });
         setTimeout(async()=>{await loadBooks();renderBookTable();},1500);
@@ -986,6 +1032,7 @@
     };
 
     async function initialLoad() {
+      await waitForAuthAndOrgId();
       await loadOrders();
       await loadSupplies();
       await loadBooks();
