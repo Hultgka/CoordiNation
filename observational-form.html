@@ -273,6 +273,8 @@
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
     import { getFirestore, collection, getDocs, addDoc } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
+    import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
+    import { getDoc } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
 
     // Your Firebase config
     const firebaseConfig = {
@@ -286,10 +288,38 @@
 
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
+    const auth = getAuth(app);
+
+    let currentUserOrgId = null;
+
+    // Utility: Get Current User OrgId
+    async function getCurrentUserOrgId() {
+      const user = auth.currentUser;
+      if (!user) return null;
+      const userDoc = await getDoc(doc(db, "admins", user.uid));
+      if (userDoc.exists()) {
+        return userDoc.data().orgId;
+      }
+      return null;
+    }
+    async function waitForAuthAndOrgId() {
+      return new Promise(resolve => {
+        onAuthStateChanged(auth, async (user) => {
+          if (user) {
+            currentUserOrgId = await getCurrentUserOrgId();
+            resolve();
+          } else {
+            currentUserOrgId = null;
+            resolve();
+          }
+        });
+      });
+    }
 
     // Populate staff dropdown
     const observedStaffSelect = document.getElementById('observedStaff');
     async function populateStaffDropdown() {
+      await waitForAuthAndOrgId();
       observedStaffSelect.innerHTML = '<option value="">Loading...</option>';
       try {
         const staffSnap = await getDocs(collection(db, "staff"));
@@ -299,6 +329,8 @@
           observedStaffSelect.innerHTML = '<option value="">Select staff</option>';
           staffSnap.forEach(docSnap => {
             const data = docSnap.data();
+            // If you want to filter staff by orgId, add this:
+            // if (data.orgId !== currentUserOrgId) return;
             let name = data.displayName || data.name || data.email || docSnap.id;
             observedStaffSelect.innerHTML += `<option value="${name}">${name}</option>`;
           });
@@ -354,7 +386,7 @@
         return;
       }
 
-      // --- FIX: Add staffName field to match report-generator.html ---
+      // --- FIX: Add staffName and date field for report-generator.html ---
       // The report generator expects each observation to have a field named staffName
       // that matches the observed staff's name exactly (as in the dropdown)
       const observationData = {
@@ -366,7 +398,8 @@
         wish,
         lessonPlanSubmitted,
         lessonPlanLink: lessonPlanSubmitted ? lessonPlanLinkValue : "",
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        orgId: currentUserOrgId // <-- ADDED orgId field!
       };
 
       try {
