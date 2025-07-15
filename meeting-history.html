@@ -291,7 +291,9 @@
   <!-- Firebase JS SDK -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
-    import { getFirestore, collection, getDocs, doc, deleteDoc, updateDoc } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
+    import { getFirestore, collection, getDocs, doc, deleteDoc, updateDoc, query, where } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
+    import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
+    import { getDoc } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
 
     // Your Firebase config
     const firebaseConfig = {
@@ -305,10 +307,38 @@
 
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
+    const auth = getAuth(app);
 
+    let currentUserOrgId = null;
     let allMeetings = [];
     let allMeetingDocs = [];
     let observationMap = {}; // For displaying linked observation info
+
+    // Utility: Get Current User OrgId
+    async function getCurrentUserOrgId() {
+      const user = auth.currentUser;
+      if (!user) return null;
+      const userDoc = await getDoc(doc(db, "admins", user.uid));
+      if (userDoc.exists()) {
+        return userDoc.data().orgId;
+      }
+      return null;
+    }
+
+    // Auth state management to get orgId before loading any data
+    async function waitForAuthAndOrgId() {
+      return new Promise(resolve => {
+        onAuthStateChanged(auth, async (user) => {
+          if (user) {
+            currentUserOrgId = await getCurrentUserOrgId();
+            resolve();
+          } else {
+            currentUserOrgId = null;
+            resolve();
+          }
+        });
+      });
+    }
 
     // Helper: Date compare (YYYY-MM-DD)
     function isDateInRange(dateStr, startStr, endStr) {
@@ -447,8 +477,9 @@
       });
     }
 
-    // Load Meetings
+    // Load Meetings (with orgId filter!)
     async function loadMeetings() {
+      await waitForAuthAndOrgId();
       const table = document.getElementById('meetingTable');
       const noDataMsg = document.getElementById('noDataMsg');
       table.style.display = 'none';
@@ -457,7 +488,9 @@
       allMeetingDocs = [];
       try {
         await loadObservationMap();
-        const snap = await getDocs(collection(db, "meetings"));
+        // GET ONLY MEETINGS FOR THIS ORG
+        const q = query(collection(db, "meetings"), where("orgId", "==", currentUserOrgId));
+        const snap = await getDocs(q);
         snap.forEach(doc => {
           allMeetings.push(doc.data());
           allMeetingDocs.push(doc);
@@ -549,7 +582,8 @@
             meetingTime: newTime,
             meetingTitle: newTitle,
             meetingLocation: newLocation,
-            participants: newParticipants
+            participants: newParticipants,
+            orgId: currentUserOrgId // <-- Ensure orgId stays with updates!
           });
           document.getElementById('modalMsg').textContent = "Meeting updated!";
           setTimeout(() => {
