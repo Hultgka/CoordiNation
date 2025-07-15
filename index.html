@@ -212,6 +212,21 @@
       margin-bottom: -4px;
       min-height: 20px;
     }
+    .modal .success {
+      color: #15803d;
+      font-size: 0.98em;
+      margin-top: 10px;
+      margin-bottom: -4px;
+      min-height: 20px;
+    }
+    .modal .switch-link {
+      color:#2563eb;
+      text-decoration:underline;
+      cursor:pointer;
+      font-weight:600;
+      margin-top:8px;
+      display:inline-block;
+    }
     @media (max-width: 700px) {
       .cards {
         flex-direction: column;
@@ -285,7 +300,7 @@
   <div class="modal-bg" id="modalBg">
     <div class="modal" id="adminModal">
       <button class="close-btn" id="closeModalBtn">&times;</button>
-      <h2>Admin Login</h2>
+      <h2 id="modalTitle">Admin Login</h2>
       <form id="loginForm">
         <label for="loginEmail">Email</label>
         <input id="loginEmail" type="email" placeholder="Email" required autofocus>
@@ -294,6 +309,30 @@
         <div class="error" id="loginError"></div>
         <button type="submit" class="modal-submit">Login</button>
       </form>
+      <div style="margin-top:18px;">
+        <span class="switch-link" id="showSignupLink">Create Account</span>
+      </div>
+    </div>
+    <!-- Sign Up Form (hidden initially) -->
+    <div class="modal" id="signupModal" style="display:none;">
+      <button class="close-btn" id="closeSignupBtn">&times;</button>
+      <h2>Create Account</h2>
+      <form id="signupForm">
+        <label for="signupName">Your Name</label>
+        <input type="text" id="signupName" required>
+        <label for="signupEmail">Email</label>
+        <input type="email" id="signupEmail" required>
+        <label for="signupPassword">Password</label>
+        <input type="password" id="signupPassword" required>
+        <label for="signupOrgName">School/Organization Name</label>
+        <input type="text" id="signupOrgName" required>
+        <div class="error" id="signupError"></div>
+        <div class="success" id="signupSuccess"></div>
+        <button type="submit" class="modal-submit">Sign Up</button>
+      </form>
+      <div style="margin-top:18px;">
+        <span class="switch-link" id="showLoginLink">Back to Login</span>
+      </div>
     </div>
   </div>
 
@@ -321,7 +360,7 @@
   <!-- Firebase JS SDK -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
-    import { getFirestore, doc, setDoc, getDoc, collection, getDocs } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
+    import { getFirestore, doc, setDoc, getDoc, collection, getDocs, addDoc, query, where } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
     import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
 
     // Your Firebase config
@@ -339,7 +378,7 @@
     const db = getFirestore(app);
     const auth = getAuth(app);
 
-    // Navigation logic (now using actual routing)
+    // Navigation logic
     window.navigate = function(page) {
       window.location.href = page + ".html";
     };
@@ -347,15 +386,52 @@
     // Modal logic
     const adminLoginBtn = document.getElementById('adminLoginBtn');
     const modalBg = document.getElementById('modalBg');
+    const adminModal = document.getElementById('adminModal');
+    const signupModal = document.getElementById('signupModal');
     const closeModalBtn = document.getElementById('closeModalBtn');
-    adminLoginBtn.onclick = () => { modalBg.style.display = 'flex'; };
-    closeModalBtn.onclick = () => { modalBg.style.display = 'none'; document.getElementById('loginError').textContent = ""; };
-    modalBg.onclick = (e) => { if (e.target === modalBg) { modalBg.style.display = 'none'; document.getElementById('loginError').textContent = ""; } };
+    const closeSignupBtn = document.getElementById('closeSignupBtn');
+    const showSignupLink = document.getElementById('showSignupLink');
+    const showLoginLink = document.getElementById('showLoginLink');
 
-    // Admin Dashboard Modal
-    const adminDashboardBg = document.getElementById('adminDashboardBg');
-    const closeDashboardBtn = document.getElementById('closeDashboardBtn');
-    closeDashboardBtn.onclick = () => { adminDashboardBg.style.display = 'none'; };
+    adminLoginBtn.onclick = () => {
+      modalBg.style.display = 'flex';
+      adminModal.style.display = 'block';
+      signupModal.style.display = 'none';
+    };
+    closeModalBtn.onclick = () => {
+      modalBg.style.display = 'none';
+      adminModal.style.display = 'block';
+      signupModal.style.display = 'none';
+      document.getElementById('loginError').textContent = "";
+    };
+    closeSignupBtn.onclick = () => {
+      modalBg.style.display = 'none';
+      adminModal.style.display = 'block';
+      signupModal.style.display = 'none';
+      document.getElementById('signupError').textContent = "";
+      document.getElementById('signupSuccess').textContent = "";
+    };
+    modalBg.onclick = (e) => {
+      if (e.target === modalBg) {
+        modalBg.style.display = 'none';
+        adminModal.style.display = 'block';
+        signupModal.style.display = 'none';
+        document.getElementById('loginError').textContent = "";
+        document.getElementById('signupError').textContent = "";
+        document.getElementById('signupSuccess').textContent = "";
+      }
+    };
+    showSignupLink.onclick = () => {
+      adminModal.style.display = 'none';
+      signupModal.style.display = 'block';
+      document.getElementById('signupError').textContent = "";
+      document.getElementById('signupSuccess').textContent = "";
+    };
+    showLoginLink.onclick = () => {
+      signupModal.style.display = 'none';
+      adminModal.style.display = 'block';
+      document.getElementById('loginError').textContent = "";
+    };
 
     // Utility to check if user is super-admin
     function isSuperAdmin(email) {
@@ -388,6 +464,47 @@
         showAdminDashboard(email, uid, adminDocSnap.data());
       } catch (err) {
         errorElem.textContent = "Login failed. Please check your credentials.";
+      }
+    };
+
+    // Handle sign up form
+    document.getElementById('signupForm').onsubmit = async function(e) {
+      e.preventDefault();
+      const name = document.getElementById('signupName').value.trim();
+      const email = document.getElementById('signupEmail').value.trim().toLowerCase();
+      const password = document.getElementById('signupPassword').value;
+      const orgName = document.getElementById('signupOrgName').value.trim();
+      const errorElem = document.getElementById('signupError');
+      const successElem = document.getElementById('signupSuccess');
+      errorElem.textContent = "";
+      successElem.textContent = "";
+
+      try {
+        // Check if organization already exists
+        const orgSnap = await getDocs(query(collection(db,"organizations"), where("name","==",orgName)));
+        let orgId;
+        if (orgSnap.empty) {
+          // Create new org
+          const orgRef = await addDoc(collection(db,"organizations"), { name: orgName, createdBy: email, type: "school" });
+          orgId = orgRef.id;
+        } else {
+          orgId = orgSnap.docs[0].id;
+        }
+        // Create user in Auth
+        const cred = await createUserWithEmailAndPassword(auth, email, password);
+        // Save user profile in Firestore (admin by default)
+        await setDoc(doc(db, "admins", cred.user.uid), {
+          email,
+          displayName: name,
+          orgId,
+          role: "admin",
+          createdAt: new Date().toISOString()
+        });
+        successElem.textContent = `Account created! You are now admin of "${orgName}". Please login now.`;
+        // Reset form
+        document.getElementById('signupForm').reset();
+      } catch (err) {
+        errorElem.textContent = err.message;
       }
     };
 
@@ -441,6 +558,11 @@
         errorElem.textContent = err.message.includes("already") ? "Email already exists." : "Failed to add admin";
       }
     };
+
+    // Admin Dashboard Modal
+    const adminDashboardBg = document.getElementById('adminDashboardBg');
+    const closeDashboardBtn = document.getElementById('closeDashboardBtn');
+    closeDashboardBtn.onclick = () => { adminDashboardBg.style.display = 'none'; };
 
     // OPTIONAL: Pre-create the super admin in Firestore if not present (run once in console or in setup)
     // (You must manually create the super-admin Firebase Auth account via Firebase Console or admin form)
