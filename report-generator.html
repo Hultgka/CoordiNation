@@ -129,6 +129,7 @@
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
     import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
+    // This is the ONLY place to define your firebaseConfig!
     const firebaseConfig = {
       apiKey: "AIzaSyDXhHCNUsQoQ6SRYWYhPEPI811-2xTnlpE",
       authDomain: "school-coordination.firebaseapp.com",
@@ -146,11 +147,10 @@
     let allMeetings = [];
     let allProblems = [];
 
-    function getStaffName(d) {
-      return d.displayName || d.name || d.email || d.id || "";
-    }
-
+    // Helper: get staff from Firestore, OR fallback to localStorage if Firestore is empty
     async function loadStaffDropdowns() {
+      let loadedFrom = "firestore";
+      let foundStaff = [];
       try {
         const staffSnap = await getDocs(collection(db, "staff"));
         staffList = [];
@@ -158,22 +158,45 @@
         let opts = "";
         staffSnap.forEach(docSnap => {
           const d = docSnap.data();
-          const name = getStaffName(d);
+          // Try all common staff fields, fallback to doc id
+          const name = d.displayName || d.name || d.fullName || d.staffName || d.email || docSnap.id;
           if (name) {
             staffList.push({ id: docSnap.id, ...d, displayName: name });
             staffEmailMap[name] = d.email || "";
+            foundStaff.push(name);
             opts += `<option value="${name}">${name}</option>`;
           }
         });
-
+        if (foundStaff.length === 0) {
+          // Try to fallback to localStorage if present
+          let localStaff = [];
+          try {
+            localStaff = JSON.parse(localStorage.getItem("staffList") || "[]");
+          } catch (e) {}
+          if (Array.isArray(localStaff) && localStaff.length > 0) {
+            loadedFrom = "localStorage";
+            staffList = [];
+            staffEmailMap = {};
+            opts = "";
+            localStaff.forEach(d => {
+              const name = d.displayName || d.name || d.fullName || d.staffName || d.email || "";
+              if (name) {
+                staffList.push({ ...d, displayName: name });
+                staffEmailMap[name] = d.email || "";
+                foundStaff.push(name);
+                opts += `<option value="${name}">${name}</option>`;
+              }
+            });
+          }
+        }
         document.getElementById('exportStaffSel').innerHTML = opts;
         document.getElementById('reportStaffSel').innerHTML = `<option value="">Select staff...</option>` + opts;
 
-        if (staffList.length === 0) {
+        if (foundStaff.length === 0) {
           document.getElementById('loadError').innerText = 
-            "No staff found in Firestore. Please add staff to the 'staff' collection.";
+            "No staff found in Firestore or local directory. Please add staff to the 'staff' collection or your directory.";
         } else {
-          document.getElementById('loadError').innerText = "";
+          document.getElementById('loadError').innerText = "Staff loaded from: " + loadedFrom;
         }
       } catch (err) {
         document.getElementById('loadError').innerText = 
