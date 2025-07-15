@@ -42,7 +42,6 @@
     @media (max-width: 900px) { .container { max-width: 99vw; } }
     @media (max-width: 600px) { .container { padding: 8px 1px; } header { font-size: 1.1em; } .section-title { font-size: 1em; } .signature-block { gap: 10px; flex-direction: column; } .signature-line { width: 90vw; } .multi-select-box { min-width: 90vw; } .navbar { position:static; display:block; margin:0 auto; } }
   </style>
-  <script src="https://apis.google.com/js/api.js"></script>
 </head>
 <body>
   <header>
@@ -65,7 +64,7 @@
   </header>
   <div class="container">
     <div class="section-box">
-      <div class="section-title">Export Data to Google Sheets</div>
+      <div class="section-title">Export Data as CSV</div>
       <form id="exportForm">
         <div class="checkbox-list">
           <label><input type="checkbox" name="dataType" value="observations" checked> Observations</label>
@@ -84,9 +83,9 @@
         </div>
         <div class="toggle-wrap">
           <input type="checkbox" id="exportSplitSheets" checked>
-          <label for="exportSplitSheets">Export by data type (separate sheets)</label>
+          <label for="exportSplitSheets">Export by data type (separate CSV files)</label>
         </div>
-        <button type="submit" class="btn">Export to Google Sheets</button>
+        <button type="submit" class="btn">Export as CSV</button>
         <span id="exportMsg"></span>
       </form>
     </div>
@@ -393,38 +392,24 @@
       window.location.href = `mailto:${email}?subject=${subject}&body=${body}`;
     };
 
-    // --- GOOGLE SHEETS EXPORT ---
-    const CLIENT_ID = "567233493732-qrlbl43nhrcanb5pjdpuvju76o022mmj.apps.googleusercontent.com";
-    const SCOPES = "https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive.file";
-    let gapiInited = false;
-    function loadGapi() {
-      return new Promise(resolve => {
-        if (gapiInited) return resolve();
-        gapi.load('client:auth2', () => {
-          gapi.client.init({
-            clientId: CLIENT_ID,
-            scope: SCOPES
-          }).then(() => {
-            gapiInited = true;
-            resolve();
-          });
-        });
-      });
-    }
-    async function getGapiAuth() {
-      await loadGapi();
-      if (!gapi.auth2.getAuthInstance().isSignedIn.get()) {
-        await gapi.auth2.getAuthInstance().signIn();
-      }
-      return gapi.auth2.getAuthInstance().currentUser.get().getAuthResponse().access_token;
-    }
-    function toSheetRows(arr, headers) {
-      let rows = [headers];
+    // --- CSV EXPORT ---
+    function toCSV(arr, headers) {
+      const escape = val =>
+        typeof val === "string"
+          ? '"' + val.replace(/"/g, '""').replace(/\r?\n/g, ' ') + '"'
+          : (val !== undefined && val !== null ? val : "");
+      let out = [headers.join(",")];
       arr.forEach(obj => {
-        rows.push(headers.map(h => (obj[h] !== undefined ? (Array.isArray(obj[h]) ? obj[h].join(", ") : obj[h]) : "")));
+        out.push(headers.map(h => {
+          let v = obj[h];
+          if (Array.isArray(v)) return escape(v.join(", "));
+          if (typeof v === 'object' && v !== null) return escape(JSON.stringify(v));
+          return escape(v);
+        }).join(","));
       });
-      return rows;
+      return out.join("\r\n");
     }
+
     function filterByStaff(arr, staffNames, staffField, involvedField) {
       if (!staffNames || staffNames.length === 0) return arr;
       staffNames = staffNames.map(s => s.toLowerCase());
@@ -451,103 +436,114 @@
       return arr.filter(obj => keywordMatch(obj, keywords));
     }
 
+    function downloadFile(data, filename, type = "text/csv") {
+      const blob = new Blob([data], { type });
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+
     document.getElementById('exportForm').onsubmit = async function(e) {
       e.preventDefault();
       document.getElementById('exportMsg').innerHTML = "";
       try {
         await fetchAllData();
-        await loadGapi();
-        await getGapiAuth();
-
         const selectedTypes = Array.from(document.querySelectorAll('input[name="dataType"]:checked')).map(x=>x.value);
         if (selectedTypes.length === 0) throw new Error("Select at least one data type.");
-
         let allStaff = document.getElementById('exportAllStaff').checked;
         let staffVals = Array.from(document.getElementById('exportStaffSel').selectedOptions).map(opt=>opt.value);
         if (!allStaff && staffVals.length === 0) throw new Error("Select at least one staff member or 'All Staff'.");
-
         let start = document.getElementById('exportStartDate').value;
         let end = document.getElementById('exportEndDate').value;
         let keywords = document.getElementById('exportKeywords').value.toLowerCase().split(/[, ]+/).filter(Boolean);
         let splitSheets = document.getElementById('exportSplitSheets').checked;
 
-        let sheets = [];
-        let combinedRows = [["Type", "ID", "Staff", "Date", "Title", "Location", "Notes", "Extra1", "Extra2"]];
-        if (selectedTypes.includes("observations")) {
-          let obs = allObservations.slice();
-          if (!allStaff) obs = filterByStaff(obs, staffVals, "staffName", "staffName");
-          obs = filterByDate(obs, ["date"], start, end);
-          obs = filterByKeywords(obs, keywords);
-          let headers = ["_docId", "staffName", "date", "observerName", "stars", "wish", "lessonPlanSubmitted", "lessonPlanLink"];
-          if (splitSheets)
-            sheets.push({ title: "Observations", headers, data: obs });
-          else
-            obs.forEach(o => {
-              combinedRows.push(["Observation", o._docId, o.staffName, o.date, o.observerName, Array.isArray(o.stars)?o.stars.join(', '):"", o.wish, o.lessonPlanSubmitted?"Yes":"No", o.lessonPlanLink]);
-            });
-        }
-        if (selectedTypes.includes("meetings")) {
-          let meets = allMeetings.slice();
-          if (!allStaff) meets = filterByStaff(meets, staffVals, "staffInvolved", "staffInvolved");
-          meets = filterByDate(meets, ["meetingDate"], start, end);
-          meets = filterByKeywords(meets, keywords);
-          let headers = ["_docId", "meetingTitle", "meetingDate", "meetingTime", "staffInvolved", "discussions", "nextSteps", "attachmentURLs"];
-          if (splitSheets)
-            sheets.push({ title: "Meetings", headers, data: meets });
-          else
-            meets.forEach(m => {
-              combinedRows.push([
-                "Meeting", m._docId, Array.isArray(m.staffInvolved)?m.staffInvolved.join(", "):"", m.meetingDate, m.meetingTitle, m.meetingTime,
-                JSON.stringify(m.discussions), JSON.stringify(m.nextSteps), Array.isArray(m.attachmentURLs)?m.attachmentURLs.join(", "):""
-              ]);
-            });
-        }
-        if (selectedTypes.includes("problems")) {
-          let probs = allProblems.slice();
-          if (!allStaff) probs = filterByStaff(probs, staffVals, "staffInvolved", "staffInvolved");
-          probs = filterByDate(probs, ["problemDate"], start, end);
-          probs = filterByKeywords(probs, keywords);
-          let headers = ["_docId", "problemTitle", "problemDate", "problemLocation", "staffInvolved", "problemPoints", "childrenInvolved", "childrenNames", "status"];
-          if (splitSheets)
-            sheets.push({ title: "Problems", headers, data: probs });
-          else
-            probs.forEach(p => {
-              combinedRows.push([
-                "Problem", p._docId, Array.isArray(p.staffInvolved)?p.staffInvolved.join(", "):"", p.problemDate, p.problemTitle, p.problemLocation,
-                Array.isArray(p.problemPoints)?p.problemPoints.join("; "):"", p.childrenInvolved?"Yes":"No", Array.isArray(p.childrenNames)?p.childrenNames.join(", "):"", p.status
-              ]);
-            });
-        }
-
-        const spreadsheet = await gapi.client.sheets.spreadsheets.create({
-          properties: { title: `CoordiNation Export ${new Date().toLocaleString()}` },
-          sheets: splitSheets ?
-            sheets.map(s => ({ properties: { title: s.title } })) :
-            [{ properties: { title: "Export" } }]
-        });
-        const sheetId = spreadsheet.result.spreadsheetId;
-
+        let exported = [];
         if (splitSheets) {
-          for (let i=0; i<sheets.length; ++i) {
-            let { title, headers, data } = sheets[i];
-            let rows = toSheetRows(data, headers);
-            await gapi.client.sheets.spreadsheets.values.update({
-              spreadsheetId: sheetId,
-              range: `${title}!A1`,
-              valueInputOption: "RAW",
-              values: rows
-            });
+          if (selectedTypes.includes("observations")) {
+            let obs = allObservations.slice();
+            if (!allStaff) obs = filterByStaff(obs, staffVals, "staffName", "staffName");
+            obs = filterByDate(obs, ["date"], start, end);
+            obs = filterByKeywords(obs, keywords);
+            let headers = ["_docId", "staffName", "date", "observerName", "stars", "wish", "lessonPlanSubmitted", "lessonPlanLink", "notes"];
+            let csv = toCSV(obs, headers);
+            downloadFile(csv, "Observations.csv");
+            exported.push("Observations");
+          }
+          if (selectedTypes.includes("meetings")) {
+            let meets = allMeetings.slice();
+            if (!allStaff) meets = filterByStaff(meets, staffVals, "staffInvolved", "staffInvolved");
+            meets = filterByDate(meets, ["meetingDate"], start, end);
+            meets = filterByKeywords(meets, keywords);
+            let headers = ["_docId", "meetingTitle", "meetingDate", "meetingTime", "staffInvolved", "discussions", "nextSteps", "attachmentURLs", "notes"];
+            let csv = toCSV(meets, headers);
+            downloadFile(csv, "Meetings.csv");
+            exported.push("Meetings");
+          }
+          if (selectedTypes.includes("problems")) {
+            let probs = allProblems.slice();
+            if (!allStaff) probs = filterByStaff(probs, staffVals, "staffInvolved", "staffInvolved");
+            probs = filterByDate(probs, ["problemDate"], start, end);
+            probs = filterByKeywords(probs, keywords);
+            let headers = ["_docId", "problemTitle", "problemDate", "problemLocation", "staffInvolved", "problemPoints", "childrenInvolved", "childrenNames", "status", "notes"];
+            let csv = toCSV(probs, headers);
+            downloadFile(csv, "Problems.csv");
+            exported.push("Problems");
           }
         } else {
-          await gapi.client.sheets.spreadsheets.values.update({
-            spreadsheetId: sheetId,
-            range: `Export!A1`,
-            valueInputOption: "RAW",
-            values: combinedRows
-          });
+          // Combine all selected types into one CSV
+          let rows = [];
+          let headers = ["Type", "ID", "Staff", "Date", "Title", "Location", "Notes", "Extra1", "Extra2"];
+          rows.push(headers);
+          if (selectedTypes.includes("observations")) {
+            let obs = allObservations.slice();
+            if (!allStaff) obs = filterByStaff(obs, staffVals, "staffName", "staffName");
+            obs = filterByDate(obs, ["date"], start, end);
+            obs = filterByKeywords(obs, keywords);
+            obs.forEach(o => {
+              rows.push([
+                "Observation", o._docId, o.staffName, o.date, o.observerName, "", o.notes, Array.isArray(o.stars)?o.stars.join(', '):"", o.wish
+              ]);
+            });
+            if (obs.length) exported.push("Observations");
+          }
+          if (selectedTypes.includes("meetings")) {
+            let meets = allMeetings.slice();
+            if (!allStaff) meets = filterByStaff(meets, staffVals, "staffInvolved", "staffInvolved");
+            meets = filterByDate(meets, ["meetingDate"], start, end);
+            meets = filterByKeywords(meets, keywords);
+            meets.forEach(m => {
+              rows.push([
+                "Meeting", m._docId, Array.isArray(m.staffInvolved)?m.staffInvolved.join(", "):"", m.meetingDate, m.meetingTitle, m.meetingTime,
+                m.notes, JSON.stringify(m.discussions), JSON.stringify(m.nextSteps)
+              ]);
+            });
+            if (meets.length) exported.push("Meetings");
+          }
+          if (selectedTypes.includes("problems")) {
+            let probs = allProblems.slice();
+            if (!allStaff) probs = filterByStaff(probs, staffVals, "staffInvolved", "staffInvolved");
+            probs = filterByDate(probs, ["problemDate"], start, end);
+            probs = filterByKeywords(probs, keywords);
+            probs.forEach(p => {
+              rows.push([
+                "Problem", p._docId, Array.isArray(p.staffInvolved)?p.staffInvolved.join(", "):"", p.problemDate, p.problemTitle, p.problemLocation,
+                p.notes, Array.isArray(p.problemPoints)?p.problemPoints.join("; "):"", p.status
+              ]);
+            });
+            if (probs.length) exported.push("Problems");
+          }
+          let csv = rows.map(row => row.map(cell => {
+            if (typeof cell === "string" && (cell.includes(",") || cell.includes('"') || cell.includes("\n")))
+              return '"' + cell.replace(/"/g,'""') + '"';
+            return cell !== undefined && cell !== null ? cell : "";
+          }).join(",")).join("\r\n");
+          downloadFile(csv, "CoordiNation_Export.csv");
         }
-
-        document.getElementById('exportMsg').innerHTML = `<span class="export-success">Exported! <a href="https://docs.google.com/spreadsheets/d/${sheetId}" target="_blank">Open Sheet</a></span>`;
+        document.getElementById('exportMsg').innerHTML = `<span class="export-success">Exported ${exported.join(", ") || "data"} as CSV.</span>`;
       } catch (e) {
         document.getElementById('exportMsg').innerHTML = `<span class="export-fail">Export failed. (${e.message || e})</span>`;
       }
