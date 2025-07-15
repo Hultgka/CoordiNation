@@ -108,7 +108,7 @@
       font-size: 1em;
       margin: 22px 0;
     }
-    .archive-btn {
+    .archive-btn, .edit-btn, .delete-btn {
       background: #4f46e5;
       color: #fff;
       border: none;
@@ -118,10 +118,13 @@
       cursor: pointer;
       font-weight: 600;
       margin-top: 3px;
+      margin-bottom: 2px;
+      margin-right: 5px;
       box-shadow: 0 2px 8px rgba(52, 92, 172, 0.10);
       transition: background 0.2s;
+      display: inline-block;
     }
-    .archive-btn:hover {
+    .archive-btn:hover, .edit-btn:hover, .delete-btn:hover {
       background: #2563eb;
     }
     .attachment-link {
@@ -183,6 +186,10 @@
     .back-link:hover {
       color: #4f46e5;
     }
+    .edit-form-bg {position:fixed; left:0;top:0;right:0;bottom:0; z-index:1000; background:rgba(0,0,0,0.18);}
+    .edit-form-modal {background:#fff; border-radius:12px; max-width:410px; margin:100px auto 0 auto; border:1px solid #dbeafe; padding:18px 22px; box-shadow:0 6px 30px rgba(54,76,160,0.10);}
+    .edit-form-modal label {margin-right:5px;}
+    .edit-form-modal input, .edit-form-modal textarea {margin:0 0 10px 0;}
     @media (max-width: 1200px) {
       .history-container { max-width: 99vw; }
       table { font-size: 0.93em; }
@@ -242,10 +249,11 @@
     </div>
     <a class="back-link" href="problem-solving.html">&larr; Back to Problem Solving</a>
   </div>
+  <div id="editModalBg" style="display:none"></div>
   <!-- Firebase JS SDK -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
-    import { getFirestore, collection, getDocs, updateDoc, doc } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
+    import { getFirestore, collection, getDocs, updateDoc, doc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
 
     // Your Firebase config
     const firebaseConfig = {
@@ -263,14 +271,11 @@
     let meetingMap = {};
     let grouped = false;
 
-    // Helper: Render Table
     function renderTable() {
       const table = document.getElementById('problemTable');
       const tbody = table.querySelector('tbody');
       const noDataMsg = document.getElementById('noDataMsg');
       const groupsDiv = document.getElementById('problemGroups');
-
-      // Filters
       const titleFilter = document.getElementById('titleFilter').value.trim().toLowerCase();
       const staffFilter = document.getElementById('staffFilter').value.trim().toLowerCase();
       const locationFilter = document.getElementById('locationFilter').value.trim().toLowerCase();
@@ -286,12 +291,10 @@
         return true;
       });
 
-      // Grouped display
       if (grouped) {
         table.style.display = 'none';
         groupsDiv.style.display = 'block';
         groupsDiv.innerHTML = '';
-        // Group by title
         let groups = {};
         filtered.forEach(problem => {
           const title = problem.problemTitle || 'Untitled';
@@ -343,28 +346,22 @@
     }
 
     function problemRowHTML(problem, idx) {
-      // Staff
       const staffCell = (problem.staffInvolved || []).join(', ');
-      // Children
       let childrenCell = '';
       if (problem.childrenInvolved && Array.isArray(problem.childrenNames)) {
         childrenCell = problem.childrenNames.join(', ');
       } else {
         childrenCell = '<span style="color:#999;">None</span>';
       }
-      // Description points
       let descCell = (problem.problemPoints || []).map((pt,i)=>`<div><b>Point ${i+1}:</b> ${pt}</div>`).join('');
-      // Next steps
       let nextStepsCell = (problem.nextSteps || []).map(step =>
         `<div><b>Step:</b> ${step.desc}<br><b>Responsible:</b> ${Array.isArray(step.responsible)? step.responsible.join(', ') : ''}</div>`
       ).join('');
-      // Meeting
       let meetingCell = "";
       if (problem.meetingId && meetingMap[problem.meetingId]) {
         let m = meetingMap[problem.meetingId];
         meetingCell = `${m.meetingTitle || 'Untitled'} (${m.meetingDate || ''})`;
       }
-      // Attachments
       let attachCell = "";
       if (Array.isArray(problem.attachmentURLs) && problem.attachmentURLs.length > 0) {
         attachCell = problem.attachmentURLs.map((url, i) =>
@@ -373,14 +370,11 @@
       } else {
         attachCell = '<span style="color:#999;">None</span>';
       }
-      // Status
       let statusCell = problem.status === "archived"
         ? '<span style="color:green;font-weight:600;">Archived</span>'
         : '<span style="color:#e11d48;font-weight:600;">Open</span>';
-      // Change log toggle
       const changeID = 'changeLog-' + Math.random().toString(36).substring(2, 9) + idx;
       let changeLogBtn = `<span class="change-log-toggle" onclick="document.getElementById('${changeID}').style.display=document.getElementById('${changeID}').style.display==='block'?'none':'block'">Show</span>`;
-      // Change log block
       let changeLogBlock = `<div id="${changeID}" class="change-log-block">`;
       if (problem.changeLog && problem.changeLog.length > 0) {
         changeLogBlock += problem.changeLog.map(log =>
@@ -394,10 +388,11 @@
         changeLogBlock += 'No log.';
       }
       changeLogBlock += '</div>';
-      // Archive button
       let actionCell = "";
+      actionCell += `<button class="edit-btn" data-id="${problem._docId}">Edit</button>`;
+      actionCell += `<button class="delete-btn" data-id="${problem._docId}">Delete</button>`;
       if (problem.status !== "archived") {
-        actionCell = `<button class="archive-btn" data-id="${problem._docId}">Archive</button>`;
+        actionCell += `<button class="archive-btn" data-id="${problem._docId}">Archive</button>`;
       }
       return `<tr>
         <td>${problem.problemTitle || ''}</td>
@@ -414,7 +409,6 @@
       </tr>`;
     }
 
-    // Archive logic (mark status archived and log)
     document.addEventListener('click', async function(e) {
       if (e.target.classList.contains('archive-btn')) {
         const docId = e.target.getAttribute('data-id');
@@ -423,7 +417,6 @@
         e.target.textContent = "Archiving...";
         try {
           const problemRef = doc(db, "problems", docId);
-          // Find local problem for log
           const problem = allProblems.find(p=>p._docId===docId);
           let newLog = (problem.changeLog || []).concat([{
             who: "Admin",
@@ -435,15 +428,76 @@
             changeLog: newLog,
             updatedAt: new Date().toISOString()
           });
-          // Reload all
           await loadProblems();
         } catch (err) {
           e.target.textContent = "Error!";
         }
       }
+      if (e.target.classList.contains('edit-btn')) {
+        const docId = e.target.getAttribute('data-id');
+        editProblemModal(docId);
+      }
+      if (e.target.classList.contains('delete-btn')) {
+        const docId = e.target.getAttribute('data-id');
+        if (confirm("Are you sure you want to delete this problem?")) {
+          try {
+            await deleteDoc(doc(db, "problems", docId));
+            await loadProblems();
+          } catch (err) {
+            alert("Delete failed.");
+          }
+        }
+      }
     });
 
-    // Load Meetings for mapping
+    function editProblemModal(docId) {
+      const problem = allProblems.find(p=>p._docId===docId);
+      if (!problem) return alert("Problem not found.");
+      const modalBg = document.getElementById("editModalBg");
+      let formHtml = `<div class="edit-form-bg" id="editModalBgInner">
+        <div class="edit-form-modal">
+          <div style="font-size:1.13em;font-weight:600;margin-bottom:9px;">Edit Problem</div>
+          <form id="editProblemForm">
+            <label>Title:<br><input type="text" name="problemTitle" value="${problem.problemTitle||''}"></label><br>
+            <label>Date:<br><input type="date" name="problemDate" value="${(problem.problemDate||'').substr(0,10)}"></label><br>
+            <label>Location:<br><input type="text" name="problemLocation" value="${problem.problemLocation||''}"></label><br>
+            <label>Status:<br>
+              <select name="status">
+                <option value="open" ${problem.status==="open"?'selected':''}>Open</option>
+                <option value="archived" ${problem.status==="archived"?'selected':''}>Archived</option>
+              </select>
+            </label><br>
+            <label>Points (comma-separated):<br><textarea name="problemPoints">${Array.isArray(problem.problemPoints)?problem.problemPoints.join(", "):''}</textarea></label><br>
+            <label>Notes:<br><textarea name="notes">${problem.notes||''}</textarea></label><br>
+            <button type="submit" class="btn" style="margin-right:8px;">Save</button>
+            <button type="button" class="btn" id="cancelEditBtn">Cancel</button>
+          </form>
+        </div>
+      </div>`;
+      modalBg.innerHTML = formHtml;
+      modalBg.style.display = "block";
+      document.getElementById("cancelEditBtn").onclick = ()=>{modalBg.style.display="none";};
+      document.getElementById("editProblemForm").onsubmit = async function(e){
+        e.preventDefault();
+        let form = this;
+        let updates = {
+          problemTitle: form.problemTitle.value,
+          problemDate: form.problemDate.value,
+          problemLocation: form.problemLocation.value,
+          status: form.status.value,
+          problemPoints: form.problemPoints.value.split(",").map(s=>s.trim()).filter(Boolean),
+          notes: form.notes.value
+        };
+        try {
+          await updateDoc(doc(db, "problems", docId), updates);
+          modalBg.style.display = "none";
+          await loadProblems();
+        } catch (err) {
+          alert("Update failed.");
+        }
+      };
+    }
+
     async function loadMeetingMap() {
       const snap = await getDocs(collection(db, "meetings"));
       meetingMap = {};
@@ -452,7 +506,6 @@
       });
     }
 
-    // Load Problems
     async function loadProblems() {
       const table = document.getElementById('problemTable');
       const noDataMsg = document.getElementById('noDataMsg');
@@ -474,7 +527,6 @@
       }
     }
 
-    // Filter Events
     document.getElementById('titleFilter').addEventListener('input', renderTable);
     document.getElementById('staffFilter').addEventListener('input', renderTable);
     document.getElementById('locationFilter').addEventListener('input', renderTable);
@@ -489,7 +541,6 @@
       renderTable();
     });
 
-    // Group toggle
     document.getElementById('groupToggleBtn').onclick = function() {
       grouped = !grouped;
       this.classList.toggle('active', grouped);
@@ -497,7 +548,6 @@
       renderTable();
     };
 
-    // Global for change log toggles
     window.renderTable = renderTable;
 
     loadProblems();
