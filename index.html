@@ -294,7 +294,7 @@
       <div class="card-desc">View and analyze supply usage trends.</div>
     </div>
   </div>
-  <button class="admin-login-btn" id="adminLoginBtn">Admin Login</button>
+  <button class="admin-login-btn" id="adminLoginBtn">Admin Login / Create Account</button>
 
   <!-- Admin Login Modal -->
   <div class="modal-bg" id="modalBg">
@@ -435,8 +435,8 @@
 
     // Utility to check if user is super-admin
     function isSuperAdmin(email) {
-      // You can change this to your actual main admin email!
-      return email.toLowerCase() === "karissahultgren@school-coordination.com";
+      // Super admin is KarissaHultgren (karissa.hultgren@gmail.com)
+      return email.toLowerCase() === "karissa.hultgren@gmail.com";
     }
 
     // Handle login form
@@ -564,14 +564,13 @@
     const closeDashboardBtn = document.getElementById('closeDashboardBtn');
     closeDashboardBtn.onclick = () => { adminDashboardBg.style.display = 'none'; };
 
-    // OPTIONAL: Pre-create the super admin in Firestore if not present (run once in console or in setup)
-    // (You must manually create the super-admin Firebase Auth account via Firebase Console or admin form)
+ 
     // async function ensureSuperAdmin() {
-    //   const email = "karissahultgren@school-coordination.com";
+    //   const email = "karissa.hultgren@gmail.com";
     //   const superAdminDocRef = doc(db, "admins", "<SUPER_ADMIN_UID>");
     //   await setDoc(superAdminDocRef, {
     //     email,
-    //     displayName: "Karissahultgren",
+    //     displayName: "KarissaHultgren",
     //     createdBy: email,
     //     createdAt: new Date().toISOString()
     //   });
