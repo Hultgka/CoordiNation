@@ -180,7 +180,9 @@
   <div id="editModalBg" style="display:none"></div>
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
-    import { getFirestore, collection, getDocs, doc, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
+    import { getFirestore, collection, getDocs, doc, updateDoc, deleteDoc, query, where } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
+    import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
+    import { getDoc } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyDXhHCNUsQoQ6SRYWYhPEPI811-2xTnlpE",
@@ -193,8 +195,34 @@
 
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
+    const auth = getAuth(app);
 
+    let currentUserOrgId = null;
     let allObservations = [];
+
+    // Utility: Get Current User OrgId
+    async function getCurrentUserOrgId() {
+      const user = auth.currentUser;
+      if (!user) return null;
+      const userDoc = await getDoc(doc(db, "admins", user.uid));
+      if (userDoc.exists()) {
+        return userDoc.data().orgId;
+      }
+      return null;
+    }
+    async function waitForAuthAndOrgId() {
+      return new Promise(resolve => {
+        onAuthStateChanged(auth, async (user) => {
+          if (user) {
+            currentUserOrgId = await getCurrentUserOrgId();
+            resolve();
+          } else {
+            currentUserOrgId = null;
+            resolve();
+          }
+        });
+      });
+    }
 
     function isDateInRange(dateStr, startStr, endStr) {
       if (!dateStr) return false;
@@ -309,7 +337,10 @@
           lessonPlanLink: form.lessonPlanLink.value
         };
         try {
-          await updateDoc(doc(db, "observations", docId), updates);
+          await updateDoc(doc(db, "observations", docId), {
+            ...updates,
+            orgId: currentUserOrgId // <-- Ensure orgId stays with updates!
+          });
           modalBg.style.display = "none";
           await loadObservations();
         } catch (err) {
@@ -337,15 +368,18 @@
       }
     });
 
-    // Load Observations
+    // Load Observations (with orgId filter!)
     async function loadObservations() {
+      await waitForAuthAndOrgId();
       const table = document.getElementById('observationTable');
       const noDataMsg = document.getElementById('noDataMsg');
       table.style.display = 'none';
       noDataMsg.style.display = 'none';
       allObservations = [];
       try {
-        const snap = await getDocs(collection(db, "observations"));
+        // GET ONLY OBSERVATIONS FOR THIS ORG
+        const q = query(collection(db, "observations"), where("orgId", "==", currentUserOrgId));
+        const snap = await getDocs(q);
         snap.forEach(docSnap => {
           let data = docSnap.data();
           data._docId = docSnap.id;
