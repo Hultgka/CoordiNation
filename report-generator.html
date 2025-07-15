@@ -129,7 +129,6 @@
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
     import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
-    // This is the ONLY place to define your firebaseConfig!
     const firebaseConfig = {
       apiKey: "AIzaSyDXhHCNUsQoQ6SRYWYhPEPI811-2xTnlpE",
       authDomain: "school-coordination.firebaseapp.com",
@@ -147,9 +146,11 @@
     let allMeetings = [];
     let allProblems = [];
 
-    // Helper: get staff from Firestore, OR fallback to localStorage if Firestore is empty
+    function getStaffName(d) {
+      return d.displayName || d.name || d.fullName || d.staffName || d.email || d.id || "";
+    }
+
     async function loadStaffDropdowns() {
-      let loadedFrom = "firestore";
       let foundStaff = [];
       try {
         const staffSnap = await getDocs(collection(db, "staff"));
@@ -158,8 +159,7 @@
         let opts = "";
         staffSnap.forEach(docSnap => {
           const d = docSnap.data();
-          // Try all common staff fields, fallback to doc id
-          const name = d.displayName || d.name || d.fullName || d.staffName || d.email || docSnap.id;
+          const name = getStaffName(d);
           if (name) {
             staffList.push({ id: docSnap.id, ...d, displayName: name });
             staffEmailMap[name] = d.email || "";
@@ -167,36 +167,14 @@
             opts += `<option value="${name}">${name}</option>`;
           }
         });
-        if (foundStaff.length === 0) {
-          // Try to fallback to localStorage if present
-          let localStaff = [];
-          try {
-            localStaff = JSON.parse(localStorage.getItem("staffList") || "[]");
-          } catch (e) {}
-          if (Array.isArray(localStaff) && localStaff.length > 0) {
-            loadedFrom = "localStorage";
-            staffList = [];
-            staffEmailMap = {};
-            opts = "";
-            localStaff.forEach(d => {
-              const name = d.displayName || d.name || d.fullName || d.staffName || d.email || "";
-              if (name) {
-                staffList.push({ ...d, displayName: name });
-                staffEmailMap[name] = d.email || "";
-                foundStaff.push(name);
-                opts += `<option value="${name}">${name}</option>`;
-              }
-            });
-          }
-        }
         document.getElementById('exportStaffSel').innerHTML = opts;
         document.getElementById('reportStaffSel').innerHTML = `<option value="">Select staff...</option>` + opts;
 
         if (foundStaff.length === 0) {
           document.getElementById('loadError').innerText = 
-            "No staff found in Firestore or local directory. Please add staff to the 'staff' collection or your directory.";
+            "No staff found in Firestore. Please add staff to the 'staff' collection.";
         } else {
-          document.getElementById('loadError').innerText = "Staff loaded from: " + loadedFrom;
+          document.getElementById('loadError').innerText = "";
         }
       } catch (err) {
         document.getElementById('loadError').innerText = 
@@ -204,29 +182,77 @@
       }
     }
 
-    // Observations, Meetings, Problems: minimal stub for preview
+    // Normalize observation data for display/export
+    function normalizeObservation(d) {
+      return {
+        _docId: d._docId,
+        staffName: d.staffName || d.observedStaff || d.staff || "",
+        date: d.date || d.observationDate || d.timestamp?.substring(0,10) || "",
+        observerName: d.observerName || "",
+        stars: Array.isArray(d.stars) ? d.stars : (typeof d.stars === "string" ? [d.stars] : []),
+        wish: d.wish || "",
+        lessonPlanSubmitted: d.lessonPlanSubmitted || false,
+        lessonPlanLink: d.lessonPlanLink || "",
+        notes: d.notes || d.observationNotes || "",
+      };
+    }
+    // Normalize meeting data for display/export
+    function normalizeMeeting(d) {
+      return {
+        _docId: d._docId,
+        meetingDate: d.meetingDate || d.date || d.meetingTimestamp?.substring(0,10) || "",
+        meetingTime: d.meetingTime || "",
+        meetingTitle: d.meetingTitle || "",
+        staffInvolved: Array.isArray(d.staffInvolved) ? d.staffInvolved : (d.participants ? d.participants : []),
+        discussions: Array.isArray(d.discussions) ? d.discussions : [],
+        nextSteps: Array.isArray(d.nextSteps) ? d.nextSteps : [],
+        attachmentURLs: Array.isArray(d.attachmentURLs) ? d.attachmentURLs : [],
+        linkedObservations: Array.isArray(d.linkedObservations) ? d.linkedObservations : [],
+        notes: d.notes || "",
+      };
+    }
+    // Normalize problem data for display/export
+    function normalizeProblem(d) {
+      return {
+        _docId: d._docId,
+        problemDate: d.problemDate || d.date || d.createdAt?.substring(0,10) || "",
+        problemTitle: d.problemTitle || "",
+        problemLocation: d.problemLocation || "",
+        staffInvolved: Array.isArray(d.staffInvolved) ? d.staffInvolved : (d.staff ? d.staff : []),
+        problemPoints: Array.isArray(d.problemPoints) ? d.problemPoints : [],
+        childrenInvolved: d.childrenInvolved || false,
+        childrenNames: Array.isArray(d.childrenNames) ? d.childrenNames : [],
+        attachmentURLs: Array.isArray(d.attachmentURLs) ? d.attachmentURLs : [],
+        nextSteps: Array.isArray(d.nextSteps) ? d.nextSteps : [],
+        status: d.status || "open",
+        notes: d.notes || "",
+      };
+    }
+
     async function fetchAllData() {
+      // Fetch and normalize
       const obsSnap = await getDocs(collection(db, "observations"));
       allObservations = [];
       obsSnap.forEach(docSnap => {
         let d = docSnap.data(); d._docId = docSnap.id;
-        allObservations.push(d);
+        allObservations.push(normalizeObservation(d));
       });
       const meetSnap = await getDocs(collection(db, "meetings"));
       allMeetings = [];
       meetSnap.forEach(docSnap => {
         let d = docSnap.data(); d._docId = docSnap.id;
-        allMeetings.push(d);
+        allMeetings.push(normalizeMeeting(d));
       });
       const probSnap = await getDocs(collection(db, "problems"));
       allProblems = [];
       probSnap.forEach(docSnap => {
         let d = docSnap.data(); d._docId = docSnap.id;
-        allProblems.push(d);
+        allProblems.push(normalizeProblem(d));
       });
     }
 
     await loadStaffDropdowns();
+    await fetchAllData();
 
     document.getElementById('exportAllStaff').onchange = function() {
       document.getElementById('exportStaffSel').disabled = this.checked;
@@ -406,13 +432,105 @@
       }
     };
 
+    function buildReportHTML(staffName, opts) {
+      let html = `<div style="font-size:1.25em;font-weight:600;text-align:center;margin-bottom:10px;">Report for ${staffName}</div>`;
+      let start = opts.startDate, end = opts.endDate, keywords = (opts.keywords||"").toLowerCase().split(/[, ]+/).filter(Boolean);
+
+      // Observations
+      if (opts.obs) {
+        let obs = allObservations.filter(o => o.staffName && o.staffName.toLowerCase() === staffName.toLowerCase())
+          .filter(o => (!start || dateInRange(o.date, start, end)))
+          .filter(o => keywordMatch(o, keywords));
+        html += `<div style="font-size:1.09em;font-weight:600;margin:9px 0 5px 0;">Observations</div>`;
+        if (obs.length === 0) html += `<div style="color:#888;">No observations.</div>`;
+        obs.forEach(o => {
+          html += `<div style="margin-bottom:7px;border-bottom:1px solid #eee;padding-bottom:7px;">
+            <b>Date:</b> ${o.date || ''}<br>
+            <b>Observer:</b> ${o.observerName || ''}<br>
+            <b>Stars:</b> ${o.stars && o.stars.length ? o.stars.join(", ") : ""}<br>
+            <b>Wish:</b> ${o.wish || ''}<br>
+            <b>Lesson Plan:</b> ${o.lessonPlanSubmitted ? `<a href="${o.lessonPlanLink}" target="_blank">View Link</a>` : 'Not submitted'}<br>
+          </div>`;
+        });
+      }
+      // Meetings
+      if (opts.meet) {
+        let meets = allMeetings.filter(m => Array.isArray(m.staffInvolved) && m.staffInvolved.map(n=>n.toLowerCase()).includes(staffName.toLowerCase()))
+          .filter(m => (!start || dateInRange(m.meetingDate, start, end)))
+          .filter(m => keywordMatch(m, keywords));
+        html += `<div style="font-size:1.09em;font-weight:600;margin:9px 0 5px 0;">Meetings</div>`;
+        if (meets.length === 0) html += `<div style="color:#888;">No meetings.</div>`;
+        meets.forEach(m => {
+          html += `<div style="margin-bottom:7px;border-bottom:1px solid #eee;padding-bottom:7px;">
+            <b>Date:</b> ${m.meetingDate||''} <b>Time:</b> ${m.meetingTime||''}<br>
+            <b>Title:</b> ${m.meetingTitle||''}<br>
+            <b>Participants:</b> ${Array.isArray(m.staffInvolved)? m.staffInvolved.join(", ") : ""}<br>`;
+          // Discussions
+          if (m.discussions && m.discussions.length) {
+            html += `<b>Discussions:</b><ul>`;
+            m.discussions.forEach(d => html += `<li><b>${d.heading||""}:</b> ${d.topic||d.text||""}</li>`);
+            html += `</ul>`;
+          }
+          // Next Steps
+          if (m.nextSteps && m.nextSteps.length) {
+            html += `<b>Next Steps:</b><ul>`;
+            m.nextSteps.forEach(n => html += `<li><b>Step:</b> ${n.desc||n.text||""} <b>Responsible:</b> ${Array.isArray(n.responsible) ? n.responsible.join(", ") : ""}</li>`);
+            html += `</ul>`;
+          }
+          html += `</div>`;
+        });
+      }
+      // Problems
+      if (opts.prob) {
+        let probs = allProblems.filter(p => Array.isArray(p.staffInvolved) && p.staffInvolved.map(n=>n.toLowerCase()).includes(staffName.toLowerCase()))
+          .filter(p => (!start || dateInRange(p.problemDate, start, end)))
+          .filter(p => keywordMatch(p, keywords));
+        html += `<div style="font-size:1.09em;font-weight:600;margin:9px 0 5px 0;">Problems</div>`;
+        if (probs.length === 0) html += `<div style="color:#888;">No problems.</div>`;
+        probs.forEach(p => {
+          html += `<div style="margin-bottom:7px;border-bottom:1px solid #eee;padding-bottom:7px;">
+            <b>Date:</b> ${p.problemDate||''}<br>
+            <b>Title:</b> ${p.problemTitle||''}<br>
+            <b>Location:</b> ${p.problemLocation||''}<br>
+            <b>Status:</b> ${p.status||''}<br>
+            <b>Points:</b> ${Array.isArray(p.problemPoints) ? p.problemPoints.join("; ") : ""}<br>
+            <b>Children:</b> ${p.childrenInvolved ? (Array.isArray(p.childrenNames) ? p.childrenNames.join(", ") : "") : "None"}<br>
+          </div>`;
+        });
+      }
+      // Custom Notes
+      if (opts.notes && opts.notesText) {
+        html += `<div style="font-size:1.09em;font-weight:600;margin:9px 0 5px 0;">Custom Notes</div>`;
+        html += `<div>${opts.notesText.replace(/\n/g, '<br>')}</div>`;
+      }
+      if (opts.sigStaff || opts.sigAdmin) {
+        html += `<div class="signature-block">`;
+        if (opts.sigStaff) html += `<div><span class="signature-line"></span>Staff Signature</div>`;
+        if (opts.sigAdmin) html += `<div><span class="signature-line"></span>Admin Signature</div>`;
+        html += `</div>`;
+      }
+      return html;
+    }
+
     document.getElementById('refreshPreviewBtn').onclick = function() {
       const staffName = document.getElementById('reportStaffSel').value;
       if (!staffName) {
         document.getElementById('reportPreview').innerHTML = "<i>Please select a teacher/staff member.</i>";
         return;
       }
-      document.getElementById('reportPreview').innerHTML = `<b>Report for:</b> ${staffName}`;
+      const opts = {
+        obs: Array.from(document.querySelectorAll('input[name="reportType"][value="observations"]')).some(x=>x.checked),
+        meet: Array.from(document.querySelectorAll('input[name="reportType"][value="meetings"]')).some(x=>x.checked),
+        prob: Array.from(document.querySelectorAll('input[name="reportType"][value="problems"]')).some(x=>x.checked),
+        notes: document.getElementById('includeNotes').checked,
+        notesText: document.getElementById('customNotes').value,
+        sigStaff: document.getElementById('sigStaff').checked,
+        sigAdmin: document.getElementById('sigAdmin').checked,
+        startDate: document.getElementById('reportStartDate').value,
+        endDate: document.getElementById('reportEndDate').value,
+        keywords: document.getElementById('reportKeywords').value
+      };
+      document.getElementById('reportPreview').innerHTML = buildReportHTML(staffName, opts);
     };
 
     document.getElementById('reportStaffSel').onchange = function() {
