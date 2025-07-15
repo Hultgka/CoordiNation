@@ -253,7 +253,9 @@
   <!-- Firebase JS SDK -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
-    import { getFirestore, collection, getDocs, updateDoc, doc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
+    import { getFirestore, collection, getDocs, updateDoc, doc, deleteDoc, query, where } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
+    import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
+    import { getDoc } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
 
     // Your Firebase config
     const firebaseConfig = {
@@ -266,10 +268,36 @@
     };
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
+    const auth = getAuth(app);
 
+    let currentUserOrgId = null;
     let allProblems = [];
     let meetingMap = {};
     let grouped = false;
+
+    // Utility: Get Current User OrgId
+    async function getCurrentUserOrgId() {
+      const user = auth.currentUser;
+      if (!user) return null;
+      const userDoc = await getDoc(doc(db, "admins", user.uid));
+      if (userDoc.exists()) {
+        return userDoc.data().orgId;
+      }
+      return null;
+    }
+    async function waitForAuthAndOrgId() {
+      return new Promise(resolve => {
+        onAuthStateChanged(auth, async (user) => {
+          if (user) {
+            currentUserOrgId = await getCurrentUserOrgId();
+            resolve();
+          } else {
+            currentUserOrgId = null;
+            resolve();
+          }
+        });
+      });
+    }
 
     function renderTable() {
       const table = document.getElementById('problemTable');
@@ -426,7 +454,8 @@
           await updateDoc(problemRef, {
             status: "archived",
             changeLog: newLog,
-            updatedAt: new Date().toISOString()
+            updatedAt: new Date().toISOString(),
+            orgId: currentUserOrgId // <-- Ensure orgId stays with updates!
           });
           await loadProblems();
         } catch (err) {
@@ -486,7 +515,8 @@
           problemLocation: form.problemLocation.value,
           status: form.status.value,
           problemPoints: form.problemPoints.value.split(",").map(s=>s.trim()).filter(Boolean),
-          notes: form.notes.value
+          notes: form.notes.value,
+          orgId: currentUserOrgId // <-- Ensure orgId stays with updates!
         };
         try {
           await updateDoc(doc(db, "problems", docId), updates);
@@ -507,6 +537,7 @@
     }
 
     async function loadProblems() {
+      await waitForAuthAndOrgId();
       const table = document.getElementById('problemTable');
       const noDataMsg = document.getElementById('noDataMsg');
       table.style.display = 'none';
@@ -514,7 +545,9 @@
       allProblems = [];
       try {
         await loadMeetingMap();
-        const snap = await getDocs(collection(db, "problems"));
+        // GET ONLY PROBLEMS FOR THIS ORG
+        const q = query(collection(db, "problems"), where("orgId", "==", currentUserOrgId));
+        const snap = await getDocs(q);
         snap.forEach(doc => {
           let data = doc.data();
           data._docId = doc.id;
