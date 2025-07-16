@@ -318,7 +318,7 @@
   <!-- Firebase/Firestore -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
-    import { getFirestore, collection, getDocs, doc, getDoc } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
+    import { getFirestore, collection, getDocs, doc, getDoc, query, where } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
     import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
 
     // Firebase config
@@ -367,16 +367,14 @@
       staffEmailMap = {};
       let opts = `<option value="">Select staff...</option>`;
       let multi = "";
-      const staffSnap = await getDocs(collection(db, "staff"));
+      const staffSnap = await getDocs(query(collection(db, "staff"), where("orgId", "==", currentOrgId)));
       staffSnap.forEach(docSnap => {
         const data = docSnap.data();
-        if (data.orgId === currentOrgId) {
-          let name = data.displayName || data.name || data.email || docSnap.id;
-          staffList.push({ name, email: data.email || "" });
-          staffEmailMap[name] = data.email || "";
-          opts += `<option value="${name}">${name}</option>`;
-          multi += `<option value="${name}">${name}</option>`;
-        }
+        let name = data.displayName || data.name || data.email || docSnap.id;
+        staffList.push({ name, email: data.email || "" });
+        staffEmailMap[name] = data.email || "";
+        opts += `<option value="${name}">${name}</option>`;
+        multi += `<option value="${name}">${name}</option>`;
       });
       document.getElementById('exportStaffSel').innerHTML = multi;
       document.getElementById('reportStaffSel').innerHTML = opts;
@@ -384,22 +382,22 @@
 
     async function fetchAllData() {
       allObservations = [];
-      const obsSnap = await getDocs(collection(db, "observations"));
+      const obsSnap = await getDocs(query(collection(db, "observations"), where("orgId", "==", currentOrgId)));
       obsSnap.forEach(docSnap => {
         let d = docSnap.data(); d._docId = docSnap.id;
-        if (d.orgId === currentOrgId) allObservations.push(d);
+        allObservations.push(d);
       });
       allMeetings = [];
-      const meetSnap = await getDocs(collection(db, "meetings"));
+      const meetSnap = await getDocs(query(collection(db, "meetings"), where("orgId", "==", currentOrgId)));
       meetSnap.forEach(docSnap => {
         let d = docSnap.data(); d._docId = docSnap.id;
-        if (d.orgId === currentOrgId) allMeetings.push(d);
+        allMeetings.push(d);
       });
       allProblems = [];
-      const probSnap = await getDocs(collection(db, "problems"));
+      const probSnap = await getDocs(query(collection(db, "problems"), where("orgId", "==", currentOrgId)));
       probSnap.forEach(docSnap => {
         let d = docSnap.data(); d._docId = docSnap.id;
-        if (d.orgId === currentOrgId) allProblems.push(d);
+        allProblems.push(d);
       });
     }
 
