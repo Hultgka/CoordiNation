@@ -488,7 +488,10 @@
   <!-- FIREBASE/JS LOGIC -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
-    import { getFirestore, collection, addDoc, getDocs, updateDoc, deleteDoc, doc } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
+    import { getFirestore, collection, addDoc, getDocs, updateDoc, deleteDoc, doc, query, where } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
+    import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
+    import { getDoc } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
+
     // Firebase config
     const firebaseConfig = {
       apiKey: "AIzaSyDXhHCNUsQoQ6SRYWYhPEPI811-2xTnlpE",
@@ -500,15 +503,44 @@
     };
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
+    const auth = getAuth(app);
+
+    // --- Org/Admin state ---
+    let currentAdmin = null;
+    let currentOrgId = null;
 
     // --- Data holders ---
     let supplies = [];
     let books = [];
     let orders = [];
 
+    // --- Initial Auth and Admin Load ---
+    onAuthStateChanged(auth, async (user) => {
+      if (!user) {
+        window.location.href = "index.html";
+        return;
+      }
+      const adminDocSnap = await getDoc(doc(db, "admins", user.uid));
+      if (!adminDocSnap.exists()) {
+        alert("Access denied: Not an admin");
+        window.location.href = "index.html";
+        return;
+      }
+      currentAdmin = adminDocSnap.data();
+      currentOrgId = currentAdmin.orgId;
+      // Now load data for this org only!
+      await loadSupplies();
+      await loadBooks();
+      await loadOrders();
+      renderSupplyTable();
+      renderBookTable();
+      renderCommonOrders();
+    });
+
     // --- SUPPLY CRUD ---
     async function loadSupplies() {
-      const snap = await getDocs(collection(db, "inventory_supplies"));
+      if (!currentOrgId) { supplies = []; return; }
+      const snap = await getDocs(query(collection(db, "inventory_supplies"), where("orgId", "==", currentOrgId)));
       supplies = [];
       snap.forEach(docSnap => {
         let d = docSnap.data(); d._docId = docSnap.id;
@@ -516,7 +548,8 @@
       });
     }
     async function loadBooks() {
-      const snap = await getDocs(collection(db, "inventory_books"));
+      if (!currentOrgId) { books = []; return; }
+      const snap = await getDocs(query(collection(db, "inventory_books"), where("orgId", "==", currentOrgId)));
       books = [];
       snap.forEach(docSnap => {
         let d = docSnap.data(); d._docId = docSnap.id;
@@ -524,7 +557,8 @@
       });
     }
     async function loadOrders() {
-      const snap = await getDocs(collection(db, "orders"));
+      if (!currentOrgId) { orders = []; return; }
+      const snap = await getDocs(query(collection(db, "orders"), where("orgId", "==", currentOrgId)));
       orders = [];
       snap.forEach(docSnap => {
         let d = docSnap.data();
@@ -562,7 +596,7 @@
 
       try {
         await addDoc(collection(db, "inventory_supplies"), {
-          name, category: cat, qty, unit, notes, purchaseLink: link, date
+          name, category: cat, qty, unit, notes, purchaseLink: link, date, orgId: currentOrgId
         });
         document.getElementById('supplyMsg').textContent = "Saved!";
         await loadSupplies();
@@ -588,7 +622,7 @@
 
       try {
         await addDoc(collection(db, "inventory_books"), {
-          title, author, language: lang, unit, grade, qty, purchaseLink: link, date
+          title, author, language: lang, unit, grade, qty, purchaseLink: link, date, orgId: currentOrgId
         });
         document.getElementById('bookMsg').textContent = "Saved!";
         await loadBooks();
@@ -666,7 +700,6 @@
         tbody.appendChild(tr);
       });
     }
-    // --- COMMON ORDERS RENDER ---
     function renderCommonOrders() {
       let arr = getMostCommonOrders(8);
       let html = "<ol>";
@@ -747,7 +780,8 @@
           unit:document.getElementById('editSupplyUnit').value.trim(),
           notes:document.getElementById('editSupplyNotes').value.trim(),
           purchaseLink:document.getElementById('editSupplyLink').value.trim(),
-          date:document.getElementById('editSupplyDate').value.trim()
+          date:document.getElementById('editSupplyDate').value.trim(),
+          orgId: currentOrgId
         });
         await loadSupplies(); renderSupplyTable();
       });
@@ -775,7 +809,8 @@
           grade:document.getElementById('editBookGrade').value.trim(),
           qty:Number(document.getElementById('editBookQty').value),
           purchaseLink:document.getElementById('editBookLink').value.trim(),
-          date:document.getElementById('editBookDate').value.trim()
+          date:document.getElementById('editBookDate').value.trim(),
+          orgId: currentOrgId
         });
         await loadBooks(); renderBookTable();
       });
@@ -805,7 +840,8 @@
             unit:row["Unit"]||"",
             notes:row["Notes"]||"",
             purchaseLink:row["Purchase Link"]||row["Link"]||"",
-            date:row["Date Added"]||row["Date"]||(new Date()).toISOString().slice(0,10)
+            date:row["Date Added"]||row["Date"]||(new Date()).toISOString().slice(0,10),
+            orgId: currentOrgId
           });
         });
         setTimeout(async()=>{await loadSupplies();renderSupplyTable();},1500);
@@ -830,7 +866,8 @@
             grade:row["Grade"]||"",
             qty:Number(row["Quantity"]||row["Qty"]||0),
             purchaseLink:row["Purchase Link"]||row["Link"]||"",
-            date:row["Date Added"]||row["Date"]||(new Date()).toISOString().slice(0,10)
+            date:row["Date Added"]||row["Date"]||(new Date()).toISOString().slice(0,10),
+            orgId: currentOrgId
           });
         });
         setTimeout(async()=>{await loadBooks();renderBookTable();},1500);
