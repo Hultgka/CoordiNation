@@ -207,7 +207,6 @@
       .navbar { position:static; display:block; margin:0 auto; }
     }
   </style>
-  <!-- Google API JS Client -->
   <script src="https://apis.google.com/js/api.js"></script>
 </head>
 <body>
@@ -322,7 +321,8 @@
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
     import { getFirestore, collection, getDocs, doc, getDoc } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
     import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
-    // Firebase config (replace with yours if different)
+
+    // Firebase config
     const firebaseConfig = {
       apiKey: "AIzaSyDXhHCNUsQoQ6SRYWYhPEPI811-2xTnlpE",
       authDomain: "school-coordination.firebaseapp.com",
@@ -338,9 +338,14 @@
     // --- Org/Admin state ---
     let currentAdmin = null;
     let currentOrgId = null;
+    let staffList = [];
+    let staffEmailMap = {};
+    let allObservations = [];
+    let allMeetings = [];
+    let allProblems = [];
 
-    // Wait for user and get orgId
-    async function getCurrentUserOrgId() {
+    // --- Auth and orgId gate ---
+    async function waitForOrgId() {
       return new Promise((resolve, reject) => {
         onAuthStateChanged(auth, async (user) => {
           if (!user) {
@@ -360,20 +365,12 @@
       });
     }
 
-    // Globals
-    let staffList = [];
-    let allObservations = [];
-    let allMeetings = [];
-    let allProblems = [];
-    let staffEmailMap = {};
-
+    // --- Data loading, always after orgId is loaded ---
     async function populateStaffDropdowns() {
       staffList = [];
       staffEmailMap = {};
       let opts = `<option value="">Select staff...</option>`;
       let multi = "";
-
-      // Filter staff by orgId
       const staffSnap = await getDocs(collection(db, "staff"));
       staffSnap.forEach(docSnap => {
         const data = docSnap.data();
@@ -395,37 +392,31 @@
       const obsSnap = await getDocs(collection(db, "observations"));
       obsSnap.forEach(docSnap => {
         let d = docSnap.data(); d._docId = docSnap.id;
-        if (d.orgId === currentOrgId) {
-          allObservations.push(d);
-        }
+        if (d.orgId === currentOrgId) allObservations.push(d);
       });
       // Meetings
       allMeetings = [];
       const meetSnap = await getDocs(collection(db, "meetings"));
       meetSnap.forEach(docSnap => {
         let d = docSnap.data(); d._docId = docSnap.id;
-        if (d.orgId === currentOrgId) {
-          allMeetings.push(d);
-        }
+        if (d.orgId === currentOrgId) allMeetings.push(d);
       });
       // Problems
       allProblems = [];
       const probSnap = await getDocs(collection(db, "problems"));
       probSnap.forEach(docSnap => {
         let d = docSnap.data(); d._docId = docSnap.id;
-        if (d.orgId === currentOrgId) {
-          allProblems.push(d);
-        }
+        if (d.orgId === currentOrgId) allProblems.push(d);
       });
     }
 
-    // Initialization gate
-    async function initAfterAuth() {
-      await getCurrentUserOrgId();
+    // --- Init everything after auth + orgId ---
+    async function init() {
+      await waitForOrgId();
       await populateStaffDropdowns();
       await fetchAllData();
     }
-    await initAfterAuth();
+    await init();
 
     // Export: All Staff toggle disables multi-select
     document.getElementById('exportAllStaff').onchange = function() {
