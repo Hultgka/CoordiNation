@@ -207,7 +207,6 @@
       .navbar { position:static; display:block; margin:0 auto; }
     }
   </style>
-  <script src="https://apis.google.com/js/api.js"></script>
 </head>
 <body>
   <header>
@@ -232,9 +231,9 @@
   </header>
   <div class="container">
 
-    <!-- GOOGLE SHEETS EXPORT SECTION -->
+    <!-- CSV EXPORT SECTION -->
     <div class="section-box">
-      <div class="section-title">Export Data to Google Sheets</div>
+      <div class="section-title">Export Data to CSV</div>
       <form id="exportForm">
         <div class="checkbox-list">
           <label><input type="checkbox" name="dataType" value="observations" checked> Observations</label>
@@ -264,7 +263,7 @@
           <input type="checkbox" id="exportSplitSheets" checked>
           <label for="exportSplitSheets">Export by data type (separate sheets)</label>
         </div>
-        <button type="submit" class="btn">Export to Google Sheets</button>
+        <button type="submit" class="btn">Export to CSV</button>
         <span id="exportMsg"></span>
       </form>
     </div>
@@ -335,7 +334,6 @@
     const db = getFirestore(app);
     const auth = getAuth(app);
 
-    // --- Org/Admin state ---
     let currentAdmin = null;
     let currentOrgId = null;
     let staffList = [];
@@ -344,7 +342,6 @@
     let allMeetings = [];
     let allProblems = [];
 
-    // --- Auth and orgId gate ---
     async function waitForOrgId() {
       return new Promise((resolve, reject) => {
         onAuthStateChanged(auth, async (user) => {
@@ -365,7 +362,6 @@
       });
     }
 
-    // --- Data loading, always after orgId is loaded ---
     async function populateStaffDropdowns() {
       staffList = [];
       staffEmailMap = {};
@@ -387,21 +383,18 @@
     }
 
     async function fetchAllData() {
-      // Observations
       allObservations = [];
       const obsSnap = await getDocs(collection(db, "observations"));
       obsSnap.forEach(docSnap => {
         let d = docSnap.data(); d._docId = docSnap.id;
         if (d.orgId === currentOrgId) allObservations.push(d);
       });
-      // Meetings
       allMeetings = [];
       const meetSnap = await getDocs(collection(db, "meetings"));
       meetSnap.forEach(docSnap => {
         let d = docSnap.data(); d._docId = docSnap.id;
         if (d.orgId === currentOrgId) allMeetings.push(d);
       });
-      // Problems
       allProblems = [];
       const probSnap = await getDocs(collection(db, "problems"));
       probSnap.forEach(docSnap => {
@@ -410,7 +403,6 @@
       });
     }
 
-    // --- Init everything after auth + orgId ---
     async function init() {
       await waitForOrgId();
       await populateStaffDropdowns();
@@ -418,17 +410,14 @@
     }
     await init();
 
-    // Export: All Staff toggle disables multi-select
     document.getElementById('exportAllStaff').onchange = function() {
       document.getElementById('exportStaffSel').disabled = this.checked;
     };
 
-    // Custom notes box
     document.getElementById('includeNotes').onchange = function() {
       document.getElementById('customNotesBox').style.display = this.checked ? "block" : "none";
     };
 
-    // --- UTILITIES ---
     function dateInRange(dateStr, start, end) {
       if (!dateStr) return false;
       let d = new Date(dateStr);
@@ -441,153 +430,6 @@
       if (!keywords || !keywords.length) return true;
       let text = Object.values(obj).filter(v => typeof v === "string").join(" ").toLowerCase();
       return keywords.some(k => text.includes(k));
-    }
-
-    // --- REPORT PREVIEW LOGIC ---
-    function buildReportHTML(staffName, opts) {
-      let html = `<div style="font-size:1.25em;font-weight:600;text-align:center;margin-bottom:10px;">Report for ${staffName}</div>`;
-      // Filter by date/keywords
-      let start = opts.startDate, end = opts.endDate, keywords = (opts.keywords||"").toLowerCase().split(/[, ]+/).filter(Boolean);
-
-      // Observations
-      if (opts.obs) {
-        let obs = allObservations.filter(o => (o.staffName || o.staff || '').toLowerCase() === staffName.toLowerCase())
-          .filter(o => (!start || dateInRange(o.date, start, end)))
-          .filter(o => keywordMatch(o, keywords));
-        html += `<div style="font-size:1.09em;font-weight:600;margin:9px 0 5px 0;">Observations</div>`;
-        if (obs.length === 0) html += `<div style="color:#888;">No observations.</div>`;
-        obs.forEach(o => {
-          html += `<div style="margin-bottom:3px;"><b>Date:</b> ${o.date || ''} | <b>Notes:</b> ${o.notes || o.observationNotes || ''}</div>`;
-        });
-      }
-      // Meetings
-      if (opts.meet) {
-        let meets = allMeetings.filter(m => (m.staffInvolved || []).map(n=>n.toLowerCase()).includes(staffName.toLowerCase()))
-          .filter(m => (!start || dateInRange(m.meetingDate, start, end)))
-          .filter(m => keywordMatch(m, keywords));
-        html += `<div style="font-size:1.09em;font-weight:600;margin:9px 0 5px 0;">Meetings</div>`;
-        if (meets.length === 0) html += `<div style="color:#888;">No meetings.</div>`;
-        meets.forEach(m => {
-          html += `<div style="margin-bottom:3px;"><b>Date:</b> ${m.meetingDate||''} | <b>Title:</b> ${m.meetingTitle||''} | <b>Notes:</b> ${m.notes||''}</div>`;
-        });
-      }
-      // Problems
-      if (opts.prob) {
-        let probs = allProblems.filter(p => (p.staffInvolved || []).map(n=>n.toLowerCase()).includes(staffName.toLowerCase()))
-          .filter(p => (!start || dateInRange(p.problemDate, start, end) || dateInRange(p.date, start, end)))
-          .filter(p => keywordMatch(p, keywords));
-        html += `<div style="font-size:1.09em;font-weight:600;margin:9px 0 5px 0;">Problems</div>`;
-        if (probs.length === 0) html += `<div style="color:#888;">No problems.</div>`;
-        probs.forEach(p => {
-          html += `<div style="margin-bottom:3px;"><b>Title:</b> ${p.problemTitle||''} | <b>Location:</b> ${p.problemLocation||''} | <b>Status:</b> ${p.status||''}</div>`;
-        });
-      }
-      // Custom Notes
-      if (opts.notes && opts.notesText) {
-        html += `<div style="font-size:1.09em;font-weight:600;margin:9px 0 5px 0;">Custom Notes</div>`;
-        html += `<div>${opts.notesText.replace(/\n/g, '<br>')}</div>`;
-      }
-      // Signature lines
-      if (opts.sigStaff || opts.sigAdmin) {
-        html += `<div class="signature-block">`;
-        if (opts.sigStaff) {
-          html += `<div><span class="signature-line"></span>Staff Signature</div>`;
-        }
-        if (opts.sigAdmin) {
-          html += `<div><span class="signature-line"></span>Admin Signature</div>`;
-        }
-        html += `</div>`;
-      }
-      return html;
-    }
-
-    // On refresh preview
-    document.getElementById('refreshPreviewBtn').onclick = function() {
-      const staffName = document.getElementById('reportStaffSel').value;
-      if (!staffName) {
-        document.getElementById('reportPreview').innerHTML = "<i>Please select a teacher/staff member.</i>";
-        return;
-      }
-      const opts = {
-        obs: Array.from(document.querySelectorAll('input[name="reportType"][value="observations"]')).some(x=>x.checked),
-        meet: Array.from(document.querySelectorAll('input[name="reportType"][value="meetings"]')).some(x=>x.checked),
-        prob: Array.from(document.querySelectorAll('input[name="reportType"][value="problems"]')).some(x=>x.checked),
-        notes: document.getElementById('includeNotes').checked,
-        notesText: document.getElementById('customNotes').value,
-        sigStaff: document.getElementById('sigStaff').checked,
-        sigAdmin: document.getElementById('sigAdmin').checked,
-        startDate: document.getElementById('reportStartDate').value,
-        endDate: document.getElementById('reportEndDate').value,
-        keywords: document.getElementById('reportKeywords').value
-      };
-      document.getElementById('reportPreview').innerHTML = buildReportHTML(staffName, opts);
-    };
-
-    // Auto-refresh preview on teacher select
-    document.getElementById('reportStaffSel').onchange = function() {
-      document.getElementById('refreshPreviewBtn').click();
-    };
-
-    // --- Print/Download PDF (browser print dialog) ---
-    document.getElementById('printBtn').onclick = function() {
-      const content = document.getElementById('reportPreview').innerHTML;
-      const w = window.open('', '', 'width=800,height=900');
-      w.document.write(`<html><head><title>CoordiNation Report</title>
-      <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
-      <style>
-      body { font-family: 'Inter', Arial, sans-serif; margin:0; color: #222; }
-      .signature-line { border-bottom: 1.7px solid #444;width:220px;height:18px;margin-bottom:4px;display:block;}
-      .signature-block { margin-top:30px;display:flex;gap:60px;font-size:1.1em;}
-      </style>
-      </head><body>${content}</body></html>`);
-      w.document.close();
-      w.focus();
-      setTimeout(()=>w.print(), 300);
-    };
-
-    // --- Email via mailto (user attaches PDF after download) ---
-    document.getElementById('mailtoBtn').onclick = function() {
-      const staffName = document.getElementById('reportStaffSel').value;
-      if (!staffName) { alert("Please select a teacher first."); return; }
-      let email = staffEmailMap[staffName] || "";
-      let subject = encodeURIComponent("CoordiNation Report");
-      let body = encodeURIComponent(
-        `Dear ${staffName},\n\nPlease find attached your current report from CoordiNation.\n\n(Download the PDF using the Print button first, then attach it here.)\n\nBest regards,\nAdmin`
-      );
-      window.location.href = `mailto:${email}?subject=${subject}&body=${body}`;
-    };
-
-    // --- GOOGLE SHEETS EXPORT (OAuth + Sheets API) ---
-    const CLIENT_ID = "567233493732-qrlbl43nhrcanb5pjdpuvju76o022mmj.apps.googleusercontent.com";
-    const SCOPES = "https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive.file";
-    let gapiInited = false;
-    function loadGapi() {
-      return new Promise(resolve => {
-        if (gapiInited) return resolve();
-        gapi.load('client:auth2', () => {
-          gapi.client.init({
-            clientId: CLIENT_ID,
-            scope: SCOPES
-          }).then(() => {
-            gapiInited = true;
-            resolve();
-          });
-        });
-      });
-    }
-    async function getGapiAuth() {
-      await loadGapi();
-      if (!gapi.auth2.getAuthInstance().isSignedIn.get()) {
-        await gapi.auth2.getAuthInstance().signIn();
-      }
-      return gapi.auth2.getAuthInstance().currentUser.get().getAuthResponse().access_token;
-    }
-    function toSheetRows(arr, headers) {
-      let rows = [headers];
-      arr.forEach(obj => {
-        rows.push(headers.map(h => (obj[h] !== undefined ? (Array.isArray(obj[h]) ? obj[h].join(", ") : obj[h]) : "")));
-      });
-      return rows;
     }
 
     function filterByStaff(arr, staffNames, staffField, involvedField) {
@@ -616,112 +458,228 @@
       return arr.filter(obj => keywordMatch(obj, keywords));
     }
 
+    function arrayToCSV(arr, headers) {
+      let csv = headers.join(",") + "\n";
+      arr.forEach(obj => {
+        csv += headers.map(h => {
+          let v = obj[h] !== undefined ? obj[h] : "";
+          if (Array.isArray(v)) v = v.join("; ");
+          v = ("" + v).replace(/"/g, '""');
+          if (v.indexOf(",") !== -1 || v.indexOf("\n") !== -1) v = `"${v}"`;
+          return v;
+        }).join(",") + "\n";
+      });
+      return csv;
+    }
+
+    function downloadCSV(filename, content) {
+      const blob = new Blob([content], { type: "text/csv" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => {
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }, 100);
+    }
+
     document.getElementById('exportForm').onsubmit = async function(e) {
       e.preventDefault();
       document.getElementById('exportMsg').innerHTML = "";
-      try {
-        await fetchAllData();
-        await loadGapi();
-        await getGapiAuth();
+      await fetchAllData();
 
-        // Which types
-        const selectedTypes = Array.from(document.querySelectorAll('input[name="dataType"]:checked')).map(x=>x.value);
-        if (selectedTypes.length === 0) throw new Error("Select at least one data type.");
-
-        // Staff
-        let allStaff = document.getElementById('exportAllStaff').checked;
-        let staffVals = Array.from(document.getElementById('exportStaffSel').selectedOptions).map(opt=>opt.value);
-        if (!allStaff && staffVals.length === 0) throw new Error("Select at least one staff member or 'All Staff'.");
-
-        // Dates
-        let start = document.getElementById('exportStartDate').value;
-        let end = document.getElementById('exportEndDate').value;
-
-        // Keywords
-        let keywords = document.getElementById('exportKeywords').value.toLowerCase().split(/[, ]+/).filter(Boolean);
-
-        let splitSheets = document.getElementById('exportSplitSheets').checked;
-
-        // Build data for each type
-        let sheets = [];
-        let combinedRows = [["Type", "ID", "Staff", "Date", "Title", "Location", "Notes", "Status", "Other"]];
-        if (selectedTypes.includes("observations")) {
-          let obs = allObservations.slice();
-          if (!allStaff) obs = filterByStaff(obs, staffVals, "staffName", "staff");
-          obs = filterByDate(obs, ["date"], start, end);
-          obs = filterByKeywords(obs, keywords);
-          let headers = ["_docId", "staffName", "date", "notes", "observationNotes"];
-          if (splitSheets)
-            sheets.push({ title: "Observations", headers, data: obs });
-          else
-            obs.forEach(o => {
-              combinedRows.push(["Observation", o._docId, o.staffName, o.date, "", "", o.notes || o.observationNotes, "", ""]);
-            });
-        }
-        if (selectedTypes.includes("meetings")) {
-          let meets = allMeetings.slice();
-          if (!allStaff) meets = filterByStaff(meets, staffVals, "staff", "staffInvolved");
-          meets = filterByDate(meets, ["meetingDate", "date"], start, end);
-          meets = filterByKeywords(meets, keywords);
-          let headers = ["_docId", "meetingTitle", "meetingDate", "staffInvolved", "notes"];
-          if (splitSheets)
-            sheets.push({ title: "Meetings", headers, data: meets });
-          else
-            meets.forEach(m => {
-              combinedRows.push(["Meeting", m._docId, m.staffInvolved ? m.staffInvolved.join(", ") : "", m.meetingDate || m.date, m.meetingTitle, "", m.notes, "", ""]);
-            });
-        }
-        if (selectedTypes.includes("problems")) {
-          let probs = allProblems.slice();
-          if (!allStaff) probs = filterByStaff(probs, staffVals, "staff", "staffInvolved");
-          probs = filterByDate(probs, ["problemDate", "date"], start, end);
-          probs = filterByKeywords(probs, keywords);
-          let headers = ["_docId", "problemTitle", "problemDate", "problemLocation", "staffInvolved", "problemPoints", "childrenInvolved", "childrenNames", "status"];
-          if (splitSheets)
-            sheets.push({ title: "Problems", headers, data: probs });
-          else
-            probs.forEach(p => {
-              combinedRows.push(["Problem", p._docId, p.staffInvolved ? p.staffInvolved.join(", ") : "", p.problemDate || p.date, p.problemTitle, p.problemLocation, "", p.status, ""]);
-            });
-        }
-
-        // Create sheet
-        const spreadsheet = await gapi.client.sheets.spreadsheets.create({
-          properties: { title: `CoordiNation Export ${new Date().toLocaleString()}` },
-          sheets: splitSheets ?
-            sheets.map(s => ({ properties: { title: s.title } })) :
-            [{ properties: { title: "Export" } }]
-        });
-        const sheetId = spreadsheet.result.spreadsheetId;
-
-        if (splitSheets) {
-          // Fill each sheet
-          for (let i=0; i<sheets.length; ++i) {
-            let { title, headers, data } = sheets[i];
-            let rows = toSheetRows(data, headers);
-            await gapi.client.sheets.spreadsheets.values.update({
-              spreadsheetId: sheetId,
-              range: `${title}!A1`,
-              valueInputOption: "RAW",
-              values: rows
-            });
-          }
-        } else {
-          await gapi.client.sheets.spreadsheets.values.update({
-            spreadsheetId: sheetId,
-            range: `Export!A1`,
-            valueInputOption: "RAW",
-            values: combinedRows
-          });
-        }
-
-        document.getElementById('exportMsg').innerHTML = `<span class="export-success">Exported! <a href="https://docs.google.com/spreadsheets/d/${sheetId}" target="_blank">Open Sheet</a></span>`;
-      } catch (e) {
-        document.getElementById('exportMsg').innerHTML = `<span class="export-fail">Export failed. (${e.message || e})</span>`;
+      const selectedTypes = Array.from(document.querySelectorAll('input[name="dataType"]:checked')).map(x=>x.value);
+      if (selectedTypes.length === 0) {
+        document.getElementById('exportMsg').innerHTML = `<span class="export-fail">Export failed. (Select at least one data type.)</span>`;
+        return;
       }
+      let allStaff = document.getElementById('exportAllStaff').checked;
+      let staffVals = Array.from(document.getElementById('exportStaffSel').selectedOptions).map(opt=>opt.value);
+      if (!allStaff && staffVals.length === 0) {
+        document.getElementById('exportMsg').innerHTML = `<span class="export-fail">Export failed. (Select at least one staff member or 'All Staff'.)</span>`;
+        return;
+      }
+      let start = document.getElementById('exportStartDate').value;
+      let end = document.getElementById('exportEndDate').value;
+      let keywords = document.getElementById('exportKeywords').value.toLowerCase().split(/[, ]+/).filter(Boolean);
+      let splitSheets = document.getElementById('exportSplitSheets').checked;
+
+      let fileCount = 0;
+      let exported = [];
+      if (selectedTypes.includes("observations")) {
+        let obs = allObservations.slice();
+        if (!allStaff) obs = filterByStaff(obs, staffVals, "staffName", "staff");
+        obs = filterByDate(obs, ["date"], start, end);
+        obs = filterByKeywords(obs, keywords);
+        let headers = ["_docId", "staffName", "date", "notes", "observationNotes"];
+        let csv = arrayToCSV(obs, headers);
+        if (splitSheets) {
+          downloadCSV("Observations.csv", csv);
+          exported.push("Observations");
+          fileCount++;
+        } else {
+          exported.push(...obs.map(o => ["Observation", o]));
+        }
+      }
+      if (selectedTypes.includes("meetings")) {
+        let meets = allMeetings.slice();
+        if (!allStaff) meets = filterByStaff(meets, staffVals, "staff", "staffInvolved");
+        meets = filterByDate(meets, ["meetingDate", "date"], start, end);
+        meets = filterByKeywords(meets, keywords);
+        let headers = ["_docId", "meetingTitle", "meetingDate", "staffInvolved", "notes"];
+        let csv = arrayToCSV(meets, headers);
+        if (splitSheets) {
+          downloadCSV("Meetings.csv", csv);
+          exported.push("Meetings");
+          fileCount++;
+        } else {
+          exported.push(...meets.map(m => ["Meeting", m]));
+        }
+      }
+      if (selectedTypes.includes("problems")) {
+        let probs = allProblems.slice();
+        if (!allStaff) probs = filterByStaff(probs, staffVals, "staff", "staffInvolved");
+        probs = filterByDate(probs, ["problemDate", "date"], start, end);
+        probs = filterByKeywords(probs, keywords);
+        let headers = ["_docId", "problemTitle", "problemDate", "problemLocation", "staffInvolved", "problemPoints", "childrenInvolved", "childrenNames", "status"];
+        let csv = arrayToCSV(probs, headers);
+        if (splitSheets) {
+          downloadCSV("Problems.csv", csv);
+          exported.push("Problems");
+          fileCount++;
+        } else {
+          exported.push(...probs.map(p => ["Problem", p]));
+        }
+      }
+
+      if (!splitSheets) {
+        let combinedRows = [];
+        let headers = ["Type", "ID", "Staff", "Date", "Title", "Location", "Notes", "Status", "Other"];
+        exported.forEach(([type, obj]) => {
+          let row = [type, obj._docId || "", obj.staffInvolved ? obj.staffInvolved.join("; ") : obj.staffName || "", obj.date || obj.meetingDate || obj.problemDate || "", obj.meetingTitle || obj.problemTitle || "", obj.problemLocation || "", obj.notes || obj.observationNotes || "", obj.status || "", ""];
+          combinedRows.push(row);
+        });
+        let csv = headers.join(",") + "\n";
+        combinedRows.forEach(row => {
+          csv += row.map(v => {
+            v = ("" + v).replace(/"/g, '""');
+            if (v.indexOf(",") !== -1 || v.indexOf("\n") !== -1) v = `"${v}"`;
+            return v;
+          }).join(",") + "\n";
+        });
+        downloadCSV("CoordiNation_Export.csv", csv);
+        fileCount++;
+      }
+
+      document.getElementById('exportMsg').innerHTML = `<span class="export-success">Exported ${fileCount} CSV file(s).</span>`;
     };
 
-    // On page load, refresh preview for the first staff member if exists
+    function buildReportHTML(staffName, opts) {
+      let html = `<div style="font-size:1.25em;font-weight:600;text-align:center;margin-bottom:10px;">Report for ${staffName}</div>`;
+      let start = opts.startDate, end = opts.endDate, keywords = (opts.keywords||"").toLowerCase().split(/[, ]+/).filter(Boolean);
+
+      if (opts.obs) {
+        let obs = allObservations.filter(o => (o.staffName || o.staff || '').toLowerCase() === staffName.toLowerCase())
+          .filter(o => (!start || dateInRange(o.date, start, end)))
+          .filter(o => keywordMatch(o, keywords));
+        html += `<div style="font-size:1.09em;font-weight:600;margin:9px 0 5px 0;">Observations</div>`;
+        if (obs.length === 0) html += `<div style="color:#888;">No observations.</div>`;
+        obs.forEach(o => {
+          html += `<div style="margin-bottom:3px;"><b>Date:</b> ${o.date || ''} | <b>Notes:</b> ${o.notes || o.observationNotes || ''}</div>`;
+        });
+      }
+      if (opts.meet) {
+        let meets = allMeetings.filter(m => (m.staffInvolved || []).map(n=>n.toLowerCase()).includes(staffName.toLowerCase()))
+          .filter(m => (!start || dateInRange(m.meetingDate, start, end)))
+          .filter(m => keywordMatch(m, keywords));
+        html += `<div style="font-size:1.09em;font-weight:600;margin:9px 0 5px 0;">Meetings</div>`;
+        if (meets.length === 0) html += `<div style="color:#888;">No meetings.</div>`;
+        meets.forEach(m => {
+          html += `<div style="margin-bottom:3px;"><b>Date:</b> ${m.meetingDate||''} | <b>Title:</b> ${m.meetingTitle||''} | <b>Notes:</b> ${m.notes||''}</div>`;
+        });
+      }
+      if (opts.prob) {
+        let probs = allProblems.filter(p => (p.staffInvolved || []).map(n=>n.toLowerCase()).includes(staffName.toLowerCase()))
+          .filter(p => (!start || dateInRange(p.problemDate, start, end) || dateInRange(p.date, start, end)))
+          .filter(p => keywordMatch(p, keywords));
+        html += `<div style="font-size:1.09em;font-weight:600;margin:9px 0 5px 0;">Problems</div>`;
+        if (probs.length === 0) html += `<div style="color:#888;">No problems.</div>`;
+        probs.forEach(p => {
+          html += `<div style="margin-bottom:3px;"><b>Title:</b> ${p.problemTitle||''} | <b>Location:</b> ${p.problemLocation||''} | <b>Status:</b> ${p.status||''}</div>`;
+        });
+      }
+      if (opts.notes && opts.notesText) {
+        html += `<div style="font-size:1.09em;font-weight:600;margin:9px 0 5px 0;">Custom Notes</div>`;
+        html += `<div>${opts.notesText.replace(/\n/g, '<br>')}</div>`;
+      }
+      if (opts.sigStaff || opts.sigAdmin) {
+        html += `<div class="signature-block">`;
+        if (opts.sigStaff) {
+          html += `<div><span class="signature-line"></span>Staff Signature</div>`;
+        }
+        if (opts.sigAdmin) {
+          html += `<div><span class="signature-line"></span>Admin Signature</div>`;
+        }
+        html += `</div>`;
+      }
+      return html;
+    }
+
+    document.getElementById('refreshPreviewBtn').onclick = function() {
+      const staffName = document.getElementById('reportStaffSel').value;
+      if (!staffName) {
+        document.getElementById('reportPreview').innerHTML = "<i>Please select a teacher/staff member.</i>";
+        return;
+      }
+      const opts = {
+        obs: Array.from(document.querySelectorAll('input[name="reportType"][value="observations"]')).some(x=>x.checked),
+        meet: Array.from(document.querySelectorAll('input[name="reportType"][value="meetings"]')).some(x=>x.checked),
+        prob: Array.from(document.querySelectorAll('input[name="reportType"][value="problems"]')).some(x=>x.checked),
+        notes: document.getElementById('includeNotes').checked,
+        notesText: document.getElementById('customNotes').value,
+        sigStaff: document.getElementById('sigStaff').checked,
+        sigAdmin: document.getElementById('sigAdmin').checked,
+        startDate: document.getElementById('reportStartDate').value,
+        endDate: document.getElementById('reportEndDate').value,
+        keywords: document.getElementById('reportKeywords').value
+      };
+      document.getElementById('reportPreview').innerHTML = buildReportHTML(staffName, opts);
+    };
+
+    document.getElementById('reportStaffSel').onchange = function() {
+      document.getElementById('refreshPreviewBtn').click();
+    };
+
+    document.getElementById('printBtn').onclick = function() {
+      const content = document.getElementById('reportPreview').innerHTML;
+      const w = window.open('', '', 'width=800,height=900');
+      w.document.write(`<html><head><title>CoordiNation Report</title>
+      <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+      <style>
+      body { font-family: 'Inter', Arial, sans-serif; margin:0; color: #222; }
+      .signature-line { border-bottom: 1.7px solid #444;width:220px;height:18px;margin-bottom:4px;display:block;}
+      .signature-block { margin-top:30px;display:flex;gap:60px;font-size:1.1em;}
+      </style>
+      </head><body>${content}</body></html>`);
+      w.document.close();
+      w.focus();
+      setTimeout(()=>w.print(), 300);
+    };
+
+    document.getElementById('mailtoBtn').onclick = function() {
+      const staffName = document.getElementById('reportStaffSel').value;
+      if (!staffName) { alert("Please select a teacher first."); return; }
+      let email = staffEmailMap[staffName] || "";
+      let subject = encodeURIComponent("CoordiNation Report");
+      let body = encodeURIComponent(
+        `Dear ${staffName},\n\nPlease find attached your current report from CoordiNation.\n\n(Download the PDF using the Print button first, then attach it here.)\n\nBest regards,\nAdmin`
+      );
+      window.location.href = `mailto:${email}?subject=${subject}&body=${body}`;
+    };
+
     setTimeout(function(){
       const sel = document.getElementById('reportStaffSel');
       if (sel && sel.options.length > 1) {
