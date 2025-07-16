@@ -296,10 +296,9 @@
   <!-- Firebase JS SDK -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
-    import { getFirestore, collection, getDocs, addDoc, doc, Timestamp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
+    import { getFirestore, collection, getDocs, addDoc, doc, Timestamp, query, where } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
     import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-storage.js";
     import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
-    import { getDoc } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
 
     // Firebase config
     const firebaseConfig = {
@@ -316,72 +315,63 @@
     const storage = getStorage(app);
     const auth = getAuth(app);
 
-    let currentUserOrgId = null;
+    // --- Org/Admin state ---
+    let currentAdmin = null;
+    let currentOrgId = null;
 
-    // Utility: Get Current User OrgId
-    async function getCurrentUserOrgId() {
-      const user = auth.currentUser;
-      if (!user) return null;
-      const userDoc = await getDoc(doc(db, "admins", user.uid));
-      if (userDoc.exists()) {
-        return userDoc.data().orgId;
-      }
-      return null;
-    }
-
-    async function waitForAuthAndOrgId() {
-      return new Promise(resolve => {
+    // --- Auth and OrgID Load ---
+    async function ensureOrgIdLoaded() {
+      return new Promise((resolve, reject) => {
         onAuthStateChanged(auth, async (user) => {
-          if (user) {
-            currentUserOrgId = await getCurrentUserOrgId();
-            resolve();
-          } else {
-            currentUserOrgId = null;
-            resolve();
+          if (!user) {
+            window.location.href = "index.html";
+            return;
           }
+          const adminDocSnap = await getDocs(query(collection(db, "admins"), where("__name__", "==", user.uid)));
+          if (adminDocSnap.empty) {
+            alert("Access denied: Not an admin");
+            window.location.href = "index.html";
+            return;
+          }
+          currentAdmin = adminDocSnap.docs[0].data();
+          currentOrgId = currentAdmin.orgId;
+          resolve();
         });
       });
     }
 
-    // Populate staff dropdowns
+    // --- Staff and Observations ---
     let staffList = [];
     async function populateStaffDropdowns() {
-      await waitForAuthAndOrgId();
-      const staffSnap = await getDocs(collection(db, "staff"));
+      if (!currentOrgId) return;
+      const staffSnap = await getDocs(query(collection(db, "staff"), where("orgId", "==", currentOrgId)));
       staffList = [];
       const participantsSelect = document.getElementById('meetingParticipants');
       participantsSelect.innerHTML = '';
       staffSnap.forEach(docSnap => {
         const data = docSnap.data();
-        // If you want to filter staff by orgId, add this:
-        // if (data.orgId !== currentUserOrgId) return;
         let name = data.displayName || data.name || data.email || docSnap.id;
         staffList.push({ name, email: data.email || "" });
         participantsSelect.innerHTML += `<option value="${name}">${name}</option>`;
       });
     }
-    populateStaffDropdowns();
 
-    // Populate observations multi-select
     let observationList = [];
     async function populateObservationDropdown() {
-      await waitForAuthAndOrgId();
-      const obsSnap = await getDocs(collection(db, "observations"));
+      if (!currentOrgId) return;
+      const obsSnap = await getDocs(query(collection(db, "observations"), where("orgId", "==", currentOrgId)));
       observationList = [];
       const obsSelect = document.getElementById('meetingObservations');
       obsSelect.innerHTML = '';
       obsSnap.forEach(docSnap => {
         const obs = docSnap.data();
-        // If you want to filter observations by orgId, add this:
-        // if (obs.orgId !== currentUserOrgId) return;
         let display = `${obs.observedStaff || 'Unknown'} (${obs.observationDate || 'No date'})`;
         observationList.push({ id: docSnap.id, display });
         obsSelect.innerHTML += `<option value="${docSnap.id}">${display}</option>`;
       });
     }
-    populateObservationDropdown();
 
-    // Dynamic Discussion Areas
+    // --- Dynamic Discussion Areas ---
     let discussionCount = 0;
     function addDiscussionArea(heading="", topic="") {
       discussionCount++;
@@ -403,7 +393,7 @@
     // Add three initial areas
     for (let i=0; i<3; i++) { addDiscussionArea(); }
 
-    // Dynamic Next Steps
+    // --- Dynamic Next Steps ---
     function addNextStepArea(description="", responsible=[]) {
       const container = document.createElement('div');
       container.className = "next-step-area";
@@ -426,6 +416,7 @@
       document.getElementById('nextSteps').appendChild(container);
     }
     document.getElementById('addNextStepBtn').onclick = () => addNextStepArea();
+
     // Add two initial areas after staff loaded
     function addInitialNextSteps() {
       const nextStepsDiv = document.getElementById('nextSteps');
@@ -433,9 +424,17 @@
       addNextStepArea();
       addNextStepArea();
     }
-    setTimeout(addInitialNextSteps, 600);
 
-    // --- FIX: Use staffInvolved field for report-generator compatibility ---
+    // --- Init all dropdowns after orgId loaded ---
+    async function initializeForm() {
+      await ensureOrgIdLoaded();
+      await populateStaffDropdowns();
+      await populateObservationDropdown();
+      setTimeout(addInitialNextSteps, 600);
+    }
+    initializeForm();
+
+    // --- Form submission ---
     document.getElementById('meetingForm').onsubmit = async function(e) {
       e.preventDefault();
       const formSuccess = document.getElementById('formSuccess');
@@ -513,20 +512,19 @@
       const meetingTime = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second:'2-digit' });
       const meetingTimestamp = now.toISOString();
 
-      // --- IMPORTANT: Add staffInvolved field for the report generator ---
+      // Build meeting data
       const meetingData = {
         meetingDate,
         meetingTime,
         meetingTimestamp,
         meetingLocation,
         meetingTitle,
-        participants, // keep for other pages
-        staffInvolved: participants, // <-- this is needed for the report generator!
+        participants,
         attachmentURLs,
         linkedObservations,
         discussions,
         nextSteps,
-        orgId: currentUserOrgId // <-- ADDED orgId field!
+        orgId: currentOrgId
       };
 
       try {
