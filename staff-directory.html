@@ -166,7 +166,7 @@
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
     import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
-    import { getFirestore, doc, getDoc, collection, getDocs, setDoc, addDoc, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
+    import { getFirestore, doc, getDoc, collection, getDocs, setDoc, addDoc, updateDoc, deleteDoc, query, where } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
 
     // Your Firebase config
     const firebaseConfig = {
@@ -201,6 +201,7 @@
         return;
       }
       currentAdmin = adminDocSnap.data();
+      currentAdmin.uid = user.uid; // For reference
       renderAdminInfo(user.email, currentAdmin.displayName);
       await loadStaff();
       renderStaffTable();
@@ -213,7 +214,13 @@
 
     // Staff CRUD
     async function loadStaff() {
-      const staffSnap = await getDocs(collection(db, "staff"));
+      if (!currentAdmin || !currentAdmin.orgId) {
+        allStaff = [];
+        return;
+      }
+      // Query staff for this org only! This is critical for the rules to work.
+      const staffQuery = query(collection(db, "staff"), where("orgId", "==", currentAdmin.orgId));
+      const staffSnap = await getDocs(staffQuery);
       allStaff = [];
       staffSnap.forEach(docSnap => {
         allStaff.push({ ...docSnap.data(), id: docSnap.id });
@@ -227,9 +234,9 @@
       const roleFilter = document.getElementById('filterRole').value.trim().toLowerCase();
       const emailFilter = document.getElementById('filterEmail').value.trim().toLowerCase();
 
-      if (nameFilter) filtered = filtered.filter(s => s.name.toLowerCase().includes(nameFilter));
-      if (roleFilter) filtered = filtered.filter(s => s.role.toLowerCase().includes(roleFilter));
-      if (emailFilter) filtered = filtered.filter(s => s.email.toLowerCase().includes(emailFilter));
+      if (nameFilter) filtered = filtered.filter(s => s.name && s.name.toLowerCase().includes(nameFilter));
+      if (roleFilter) filtered = filtered.filter(s => s.role && s.role.toLowerCase().includes(roleFilter));
+      if (emailFilter) filtered = filtered.filter(s => s.email && s.email.toLowerCase().includes(emailFilter));
 
       filtered.sort((a, b) => {
         let fa = a[sortState.field] ? a[sortState.field].toLowerCase() : "";
@@ -328,9 +335,9 @@
       const data = staffSnap.data();
       staffModalTitle.textContent = "Edit Staff Member";
       staffFormError.textContent = "";
-      document.getElementById('staffName').value = data.name;
-      document.getElementById('staffRole').value = data.role;
-      document.getElementById('staffEmail').value = data.email;
+      document.getElementById('staffName').value = data.name || "";
+      document.getElementById('staffRole').value = data.role || "";
+      document.getElementById('staffEmail').value = data.email || "";
       staffModalBg.style.display = 'flex';
     }
 
@@ -345,13 +352,15 @@
         staffFormError.textContent = "All fields required.";
         return;
       }
+      if (!currentAdmin || !currentAdmin.orgId) {
+        staffFormError.textContent = "Cannot determine your organization.";
+        return;
+      }
 
       try {
         if (editingStaffId) {
-          // FIX: Always set orgId on update
           await updateDoc(doc(db, "staff", editingStaffId), { name, role, email, orgId: currentAdmin.orgId });
         } else {
-          // FIX: Always set orgId on create
           await addDoc(collection(db, "staff"), { name, role, email, orgId: currentAdmin.orgId });
         }
         staffModalBg.style.display = 'none';
