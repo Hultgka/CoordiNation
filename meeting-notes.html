@@ -296,7 +296,7 @@
   <!-- Firebase JS SDK -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
-    import { getFirestore, collection, getDocs, addDoc, doc, Timestamp, query, where } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
+    import { getFirestore, collection, getDocs, addDoc, doc, Timestamp, query, where, getDoc } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
     import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-storage.js";
     import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
 
@@ -319,21 +319,22 @@
     let currentAdmin = null;
     let currentOrgId = null;
 
-    // --- Auth and OrgID Load ---
-    async function ensureOrgIdLoaded() {
+    // --- Wait for user and get orgId ---
+    function waitForOrgId() {
       return new Promise((resolve, reject) => {
         onAuthStateChanged(auth, async (user) => {
           if (!user) {
             window.location.href = "index.html";
             return;
           }
-          const adminDocSnap = await getDocs(query(collection(db, "admins"), where("__name__", "==", user.uid)));
-          if (adminDocSnap.empty) {
+          // Fetch admin doc by UID
+          const adminDocSnap = await getDoc(doc(db, "admins", user.uid));
+          if (!adminDocSnap.exists()) {
             alert("Access denied: Not an admin");
             window.location.href = "index.html";
             return;
           }
-          currentAdmin = adminDocSnap.docs[0].data();
+          currentAdmin = adminDocSnap.data();
           currentOrgId = currentAdmin.orgId;
           resolve();
         });
@@ -425,14 +426,12 @@
       addNextStepArea();
     }
 
-    // --- Init all dropdowns after orgId loaded ---
-    async function initializeForm() {
-      await ensureOrgIdLoaded();
+    // --- Initialize everything when orgId is ready ---
+    waitForOrgId().then(async () => {
       await populateStaffDropdowns();
       await populateObservationDropdown();
       setTimeout(addInitialNextSteps, 600);
-    }
-    initializeForm();
+    });
 
     // --- Form submission ---
     document.getElementById('meetingForm').onsubmit = async function(e) {
