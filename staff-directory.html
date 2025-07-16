@@ -208,7 +208,7 @@
 
     function renderAdminInfo(email, displayName) {
       const infoEl = document.getElementById("adminInfo");
-      infoEl.textContent = `Logged in as: ${displayName || email} (${email}) [orgId: ${currentAdmin && currentAdmin.orgId ? currentAdmin.orgId : 'none'}]`;
+      infoEl.textContent = `Logged in as: ${displayName || email} (${email})`;
     }
 
     // Staff CRUD
@@ -227,9 +227,9 @@
       const roleFilter = document.getElementById('filterRole').value.trim().toLowerCase();
       const emailFilter = document.getElementById('filterEmail').value.trim().toLowerCase();
 
-      if (nameFilter) filtered = filtered.filter(s => s.name && s.name.toLowerCase().includes(nameFilter));
-      if (roleFilter) filtered = filtered.filter(s => s.role && s.role.toLowerCase().includes(roleFilter));
-      if (emailFilter) filtered = filtered.filter(s => s.email && s.email.toLowerCase().includes(emailFilter));
+      if (nameFilter) filtered = filtered.filter(s => s.name.toLowerCase().includes(nameFilter));
+      if (roleFilter) filtered = filtered.filter(s => s.role.toLowerCase().includes(roleFilter));
+      if (emailFilter) filtered = filtered.filter(s => s.email.toLowerCase().includes(emailFilter));
 
       filtered.sort((a, b) => {
         let fa = a[sortState.field] ? a[sortState.field].toLowerCase() : "";
@@ -346,15 +346,12 @@
         return;
       }
 
-      if (!currentAdmin || !currentAdmin.orgId) {
-        staffFormError.textContent = "Admin orgId missing. Cannot save staff.";
-        return;
-      }
-
       try {
         if (editingStaffId) {
+          // FIX: Always set orgId on update
           await updateDoc(doc(db, "staff", editingStaffId), { name, role, email, orgId: currentAdmin.orgId });
         } else {
+          // FIX: Always set orgId on create
           await addDoc(collection(db, "staff"), { name, role, email, orgId: currentAdmin.orgId });
         }
         staffModalBg.style.display = 'none';
