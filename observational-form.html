@@ -272,9 +272,8 @@
   <!-- Firebase JS SDK -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
-    import { getFirestore, collection, getDocs, addDoc } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
+    import { getFirestore, collection, getDocs, addDoc, query, where, getDoc } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
     import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
-    import { getDoc } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
 
     // Your Firebase config
     const firebaseConfig = {
@@ -290,28 +289,28 @@
     const db = getFirestore(app);
     const auth = getAuth(app);
 
-    let currentUserOrgId = null;
+    // --- Org/Admin state ---
+    let currentAdmin = null;
+    let currentOrgId = null;
 
-    // Utility: Get Current User OrgId
-    async function getCurrentUserOrgId() {
-      const user = auth.currentUser;
-      if (!user) return null;
-      const userDoc = await getDoc(doc(db, "admins", user.uid));
-      if (userDoc.exists()) {
-        return userDoc.data().orgId;
-      }
-      return null;
-    }
-    async function waitForAuthAndOrgId() {
-      return new Promise(resolve => {
+    // --- Wait for user and get orgId ---
+    function waitForOrgId() {
+      return new Promise((resolve, reject) => {
         onAuthStateChanged(auth, async (user) => {
-          if (user) {
-            currentUserOrgId = await getCurrentUserOrgId();
-            resolve();
-          } else {
-            currentUserOrgId = null;
-            resolve();
+          if (!user) {
+            window.location.href = "index.html";
+            return;
           }
+          // Fetch admin doc by UID
+          const adminDocSnap = await getDoc(doc(db, "admins", user.uid));
+          if (!adminDocSnap.exists()) {
+            alert("Access denied: Not an admin");
+            window.location.href = "index.html";
+            return;
+          }
+          currentAdmin = adminDocSnap.data();
+          currentOrgId = currentAdmin.orgId;
+          resolve();
         });
       });
     }
@@ -319,18 +318,16 @@
     // Populate staff dropdown
     const observedStaffSelect = document.getElementById('observedStaff');
     async function populateStaffDropdown() {
-      await waitForAuthAndOrgId();
       observedStaffSelect.innerHTML = '<option value="">Loading...</option>';
+      if (!currentOrgId) return;
       try {
-        const staffSnap = await getDocs(collection(db, "staff"));
+        const staffSnap = await getDocs(query(collection(db, "staff"), where("orgId", "==", currentOrgId)));
         if (staffSnap.empty) {
           observedStaffSelect.innerHTML = '<option value="">No staff found</option>';
         } else {
           observedStaffSelect.innerHTML = '<option value="">Select staff</option>';
           staffSnap.forEach(docSnap => {
             const data = docSnap.data();
-            // If you want to filter staff by orgId, add this:
-            // if (data.orgId !== currentUserOrgId) return;
             let name = data.displayName || data.name || data.email || docSnap.id;
             observedStaffSelect.innerHTML += `<option value="${name}">${name}</option>`;
           });
@@ -339,7 +336,6 @@
         observedStaffSelect.innerHTML = '<option value="">Error loading staff</option>';
       }
     }
-    populateStaffDropdown();
 
     // Lesson Plan Checkbox logic
     const lessonPlanCheckbox = document.getElementById('lessonPlanCheckbox');
@@ -354,6 +350,11 @@
         lessonPlanLink.value = '';
         lessonPlanLink.required = false;
       }
+    });
+
+    // --- Initialize everything when orgId is ready ---
+    waitForOrgId().then(async () => {
+      await populateStaffDropdown();
     });
 
     // Form submission
@@ -386,20 +387,16 @@
         return;
       }
 
-      // --- FIX: Add staffName and date field for report-generator.html ---
-      // The report generator expects each observation to have a field named staffName
-      // that matches the observed staff's name exactly (as in the dropdown)
       const observationData = {
         observedStaff,
-        staffName: observedStaff, // <-- this is needed for report generator to match!
-        date: observationDate,    // <-- this is needed for report generator to match!
+        observationDate,
         observerName,
         stars: [star1, star2, star3],
         wish,
         lessonPlanSubmitted,
         lessonPlanLink: lessonPlanSubmitted ? lessonPlanLinkValue : "",
         timestamp: new Date().toISOString(),
-        orgId: currentUserOrgId // <-- ADDED orgId field!
+        orgId: currentOrgId
       };
 
       try {
